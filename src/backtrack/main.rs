@@ -1,5 +1,6 @@
 use std::path::PathBuf;
-use sudoku::Sudoku;
+
+use sudoku::parsing;
 
 #[path = "../sudoku/lib.rs"]
 mod sudoku;
@@ -36,7 +37,7 @@ fn main() {
                 println!("{}", HELP);
                 std::process::exit(0);
             }
-            "-" => Sudoku::parse(std::io::stdin()),
+            "-" => parsing::parse(std::io::stdin()),
             path => {
                 let path = PathBuf::from(path);
                 let path_as_str = path.clone().to_string_lossy().to_string();
@@ -55,7 +56,7 @@ fn main() {
                 }
                 let reader = reader.unwrap();
 
-                Sudoku::parse(reader)
+                parsing::parse(reader)
             }
         },
     };

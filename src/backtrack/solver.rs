@@ -1,5 +1,4 @@
 use std::fmt::Display;
-
 use crate::sudoku::Sudoku;
 
 pub enum SolveError {

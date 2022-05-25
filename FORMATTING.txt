@@ -15,3 +15,7 @@ example.sudoku
 
 As is shown, each blank space is denoted by an underscore (`_`), and each
 "square" is separated by a space. Digits are denotes normally.
+
+The format is tolerant to the presence of whitespace; it is optional to have
+whitespace between digits/underscores, and leading and trailing whitespace is
+ignored.
