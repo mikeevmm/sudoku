@@ -64,10 +64,14 @@ fn main() {
     let input = match input {
         Ok(input) => input,
         Err(e) => {
-            eprintln!("Input is malformed.\nParsing failed with error {}", e);
+            println!("Input board malformed.");
+            println!("{}", e);
             std::process::exit(1);
         }
     };
+
+    println!("{}", input);
+    std::process::exit(0);
 
     let result = solver::backtrack(input);
 
