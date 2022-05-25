@@ -155,6 +155,51 @@ impl<R: Read> Parser<R> {
 
 impl Sudoku {
     pub fn parse<R: Read>(reader: R) -> Result<Self, SudokuParseError> {
+        let mut parser = Parser::new(SudokuCharIter::new(CharReader::new(reader)));
+
+        // We allow initial empty space
+        loop {
+            if !parser.try_match(' ')? {
+                break;
+            }
+        }
+
+        // Read the first line. This will determine what we expect the dimensions to be.
+        let mut dimensions = 0_usize;
+        let mut first_line = Vec::<char>::new();
+        loop {
+            let next = parser
+                .try_match_predicate(|c| c.is_digit(10) || c == '_')
+                .eof_ok()?;
+
+            // This looks a little messy, but it's just parsing combinating.
+            // Since we've matched a digit or an underscore, now we expect to see one of the following:
+            //  - a space
+            //  - a new line (which can be \r\n or \n)
+            //  - EOF
+            match next {
+                None => break,
+                Some(c) => {
+                    parser
+                        .expect(' ')
+                        .or(parser.try_match('\r').map(|_| ()))
+                        .or(parser.expect('\n'))
+                        .or(parser.expect_eof())
+                        .map_err(|_| {
+                            SudokuParseError::ExpectedOneOf(
+                            "Expected space, new line, or end of file after a digit or underscore."
+                                .into(),
+                        )
+                        })?;
+                    first_line.push(c);
+                    dimensions += 1;
+                }
+            };
+        }
+
+        // We've read the first line.
+        // We can instantiate a board of the correct size, and start filling it in
+
         todo!()
     }
 }
