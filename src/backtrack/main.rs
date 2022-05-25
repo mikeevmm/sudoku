@@ -60,6 +60,14 @@ fn main() {
         },
     };
 
+    let input = match input {
+        Ok(input) => input,
+        Err(e) => {
+            eprintln!("Input is malformed.\nParsing failed with error {}", e);
+            std::process::exit(1);
+        }
+    };
+
     let result = solver::backtrack(input);
 
     match result {
