@@ -1,0 +1,11 @@
+[package]
+name = "sudoku"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "backtrack"
+path = "src/backtrack/main.rs"
+
+[dependencies]
+
