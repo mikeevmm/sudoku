@@ -3,7 +3,7 @@ use crate::sudoku::Sudoku;
 use std::io::Read;
 
 pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
-    let mut parser = Parser::new(SudokuCharIter::new(CharReader::new(reader)));
+    let mut parser = Parser::new(CharReader::new(reader));
 
     // Read the first line. This will give a hint as to the size of the board.
     let mut first_line = Vec::<char>::new();
@@ -69,9 +69,9 @@ pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
     Ok(sudoku)
 }
 
-fn match_line<R, F>(parser: &mut Parser<R>, mut on_char: F) -> Result<(), String>
+fn match_line<I, F>(parser: &mut Parser<I, CharReaderError>, mut on_char: F) -> Result<(), String>
 where
-    R: Read,
+    I: Iterator<Item = Result<char, CharReaderError>>,
     F: FnMut(usize, char) -> Result<(), String>,
 {
     if let Ok(true) = parser.try_match_eof() {

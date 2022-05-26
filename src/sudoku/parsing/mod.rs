@@ -1,5 +1,5 @@
 use self::chars_reader::{CharReader, CharReaderError};
-use std::{io::Read, iter::Peekable};
+use std::{io::Read, iter::Peekable, error::Error, convert::Infallible};
 
 mod chars_reader;
 pub mod sudoku;
@@ -13,21 +13,26 @@ pub enum ParseError {
     ExpectedEof,
 }
 
-struct SudokuCharIter<R>
+struct ParserCharIter<I, E>
 where
-    R: Read,
+    I: Iterator<Item = Result<char, E>>,
 {
-    inner: Peekable<CharReader<R>>,
+    inner: Peekable<I>,
 }
 
-struct Parser<R>
+struct Parser<I, E>
 where
-    R: Read,
+    I: Iterator<Item = Result<char, E>>,
 {
-    inner: SudokuCharIter<R>,
+    inner: ParserCharIter<I, E>,
     line: usize,
     column: usize,
 }
+
+trait CanParse {}
+
+impl CanParse for CharReaderError {}
+impl CanParse for Infallible {}
 
 trait AllowEof {
     type Return;
@@ -57,22 +62,36 @@ impl AllowEof for Result<bool, ParseError> {
 }
 
 trait DefaultParseError<T> {
-    fn with_default_err_msgs<R: Read>(self, parser: &Parser<R>) -> Result<T, String>;
+    fn with_default_err_msgs<I, E>(self, parser: &Parser<I, E>) -> Result<T, String>
+    where
+        I: Iterator<Item = Result<char, E>>;
 }
 
 impl<T> DefaultParseError<T> for Result<T, ParseError> {
-    fn with_default_err_msgs<R: Read>(self, parser: &Parser<R>) -> Result<T, String> {
+    fn with_default_err_msgs<I, CharReaderError>(self, parser: &Parser<I, CharReaderError>) -> Result<T, String>
+    where
+        I: Iterator<Item = Result<char, CharReaderError>>,
+    {
         self.map_err(|e| parser.default_err_msg(e))
     }
 }
 
-impl<R: Read> SudokuCharIter<R> {
-    fn new(inner: CharReader<R>) -> Self {
+impl<I, E> ParserCharIter<I, E>
+where
+    I: Iterator<Item = Result<char, E>>,
+    E: CanParse,
+{
+    fn new(from: I) -> Self {
         Self {
-            inner: inner.peekable(),
+            inner: from.peekable(),
         }
     }
+}
 
+impl<I> ParserCharIter<I, CharReaderError>
+where
+    I: Iterator<Item = Result<char, CharReaderError>>
+{
     fn next(&mut self) -> Result<char, ParseError> {
         let error = self.inner.next();
         match error {
@@ -107,11 +126,50 @@ impl<R: Read> SudokuCharIter<R> {
     }
 }
 
+impl<I> ParserCharIter<I, Infallible>
+where
+    I: Iterator<Item = Result<char, Infallible>>
+{
+    fn next(&mut self) -> Result<char, ParseError> {
+        let error = self.inner.next();
+        match error {
+            Some(x) => match x {
+                Ok(char) => Ok(char),
+                Err(e) => unreachable!(),
+            },
+            None => Err(ParseError::UnexpectedEof),
+        }
+    }
+
+    fn peek(&mut self) -> Result<Option<char>, ParseError> {
+        let peek = self.inner.peek();
+        match peek {
+            Some(char) => {
+                if let Ok(char) = char {
+                    return Ok(Some(char.clone()));
+                }
+            }
+            None => {
+                return Ok(None);
+            }
+        };
+
+        // If we got this far we're peeking an error. Let's consume it.
+        Err(self
+            .next()
+            .expect_err("Ok situations should have been handled above."))
+    }
+}
+
 #[allow(dead_code)]
-impl<R: Read> Parser<R> {
-    fn new(inner: SudokuCharIter<R>) -> Self {
+impl<I, E> Parser<I, E>
+where
+    I: Iterator<Item = Result<char, E>>,
+    E: CanParse,
+{
+    fn new(from: I) -> Self {
         Self {
-            inner,
+            inner: ParserCharIter::new(from),
             line: 0,
             column: 0,
         }
