@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use solver::SolveError;
 use sudoku::parsing;
 
 #[path = "../sudoku/lib.rs"]
@@ -61,7 +62,7 @@ fn main() {
         },
     };
 
-    let input = match input {
+    let mut input = match input {
         Ok(input) => input,
         Err(e) => {
             println!("Input board malformed.");
@@ -70,15 +71,15 @@ fn main() {
         }
     };
 
-    let result = solver::backtrack(input);
+    let result = solver::backtrack(&mut input);
 
     match result {
-        Ok(board) => {
-            println!("Success. Solution:\n{}", board);
+        Ok(()) => {
+            println!("Success. Solution:\n{}", input);
             std::process::exit(0);
         }
-        Err(e) => {
-            eprintln!("Failed to solve input, with error {}", e);
+        Err(SolveError::Infeasible) => {
+            eprintln!("The input board is infeasible. This is as far as I got:\n{}", input);
             std::process::exit(1);
         }
     }
