@@ -1,6 +1,5 @@
 use self::chars_reader::{CharReader, CharReaderError};
-use std::{
-    convert::Infallible, iter::Peekable, marker::PhantomData};
+use std::{convert::Infallible, iter::Peekable, marker::PhantomData};
 
 mod chars_reader;
 pub mod sudoku;
@@ -14,7 +13,7 @@ pub enum ParseError {
     ExpectedEof,
 }
 
-struct Parser<P, I, E>
+pub struct Parser<P, I, E>
 where
     P: ParserCharIter<I, E>,
     I: Iterator<Item = Result<char, E>>,
@@ -26,7 +25,7 @@ where
     column: usize,
 }
 
-trait AllowEof {
+pub trait AllowEof {
     type Return;
     fn eof_ok(self) -> Result<Self::Return, ParseError>;
 }
@@ -66,12 +65,15 @@ where
     I: Iterator<Item = Result<char, CharReaderError>>,
     Peekable<I>: ParserCharIter<I, CharReaderError>,
 {
-    fn with_default_err_msgs(self, parser: &Parser<Peekable<I>, I, CharReaderError>) -> Result<T, String> {
+    fn with_default_err_msgs(
+        self,
+        parser: &Parser<Peekable<I>, I, CharReaderError>,
+    ) -> Result<T, String> {
         self.map_err(|e| parser.default_err_msg(e))
     }
 }
 
-trait ParserCharIter<I, E>
+pub trait ParserCharIter<I, E>
 where
     I: Iterator<Item = Result<char, E>>,
 {
@@ -157,7 +159,7 @@ where
     I: Iterator<Item = Result<char, E>>,
     Peekable<I>: ParserCharIter<I, E>,
 {
-    fn new(from: I) -> Self {
+    pub fn new(from: I) -> Self {
         Self {
             phantom_iter: PhantomData,
             phantom_err: PhantomData,
@@ -167,11 +169,11 @@ where
         }
     }
 
-    fn err(&self, message: String) -> String {
+    pub fn err(&self, message: String) -> String {
         format!("{message}\nAt {}:{}.", self.line, self.column)
     }
 
-    fn default_err_msg(&self, err: ParseError) -> String {
+    pub fn default_err_msg(&self, err: ParseError) -> String {
         match err {
             ParseError::NotUtf8 => self.err("Found non-UTF-8 character.".to_string()),
             ParseError::IoError(e) => format!("Failed to read input, with error {}.", e),
@@ -185,7 +187,7 @@ where
         }
     }
 
-    fn next(&mut self) -> Result<char, ParseError> {
+    pub fn next(&mut self) -> Result<char, ParseError> {
         let next = ParserCharIter::next(&mut self.inner);
         if let Ok(c) = next {
             if c == '\n' {
@@ -198,7 +200,7 @@ where
         next
     }
 
-    fn expect(&mut self, to_match: char) -> Result<(), ParseError> {
+    pub fn expect(&mut self, to_match: char) -> Result<(), ParseError> {
         let next = self.next()?;
         if next != to_match {
             Err(ParseError::UnexpectedChar(to_match))
@@ -207,14 +209,14 @@ where
         }
     }
 
-    fn expect_eof(&mut self) -> Result<(), ParseError> {
+    pub fn expect_eof(&mut self) -> Result<(), ParseError> {
         match ParserCharIter::peek(&mut self.inner) {
             Ok(None) => Ok(()),
             _ => Err(ParseError::ExpectedEof),
         }
     }
 
-    fn expect_predicate<K>(&mut self, predicate: K) -> Result<char, ParseError>
+    pub fn expect_predicate<K>(&mut self, predicate: K) -> Result<char, ParseError>
     where
         K: Fn(char) -> bool,
     {
@@ -226,7 +228,7 @@ where
         }
     }
 
-    fn try_match(&mut self, to_match: char) -> Result<bool, ParseError> {
+    pub fn try_match(&mut self, to_match: char) -> Result<bool, ParseError> {
         let next = ParserCharIter::peek(&mut self.inner)?;
         match next {
             Some(c) => {
@@ -242,7 +244,7 @@ where
         }
     }
 
-    fn try_match_eof(&mut self) -> Result<bool, ParseError> {
+    pub fn try_match_eof(&mut self) -> Result<bool, ParseError> {
         match ParserCharIter::peek(&mut self.inner) {
             Ok(None) => Ok(true),
             Ok(_) => Ok(false),
@@ -250,7 +252,7 @@ where
         }
     }
 
-    fn try_match_predicate<K>(&mut self, predicate: K) -> Result<Option<char>, ParseError>
+    pub fn try_match_predicate<K>(&mut self, predicate: K) -> Result<Option<char>, ParseError>
     where
         K: Fn(char) -> bool,
     {
@@ -269,7 +271,7 @@ where
         }
     }
 
-    fn eat_space(&mut self) -> Result<(), ParseError> {
+    pub fn eat_space(&mut self) -> Result<(), ParseError> {
         while self
             .try_match_predicate(|c| c.is_whitespace() && c != '\n' && c != '\r')
             .eof_ok()?
