@@ -69,7 +69,7 @@ pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
     Ok(sudoku)
 }
 
-fn match_line<I, F>(parser: &mut Parser<I, CharReaderError>, mut on_char: F) -> Result<(), String>
+fn match_line<I, F>(parser: &mut Parser<Peekable<I>, I, CharReaderError>, mut on_char: F) -> Result<(), String>
 where
     I: Iterator<Item = Result<char, CharReaderError>>,
     F: FnMut(usize, char) -> Result<(), String>,
