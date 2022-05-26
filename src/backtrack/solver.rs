@@ -1,6 +1,6 @@
 use crate::sudoku::{Sudoku, SudokuCell, SudokuCellUnwrap};
 use itertools::Itertools;
-use std::{collections::BTreeSet};
+use std::collections::BTreeSet;
 
 pub enum SolveError {
     Infeasible,
@@ -95,7 +95,8 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     loop {
         // Have we exhausted the possibilities at this depth?
         if pointer[depth] == compatible[depth].len() {
-            if depth == 0 { // Root node ran out of options
+            if depth == 0 {
+                // Root node ran out of options
                 return Err(SolveError::Infeasible);
             } else {
                 sudoku.set_raw(indices[depth], SudokuCell::Empty);
@@ -115,7 +116,9 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
         //std::io::stdin().read_line(&mut String::new()).ok();
 
         // If constraint is violated, try the next compatible digit
-        if violates_constraints(&sudoku) {
+        // We only need to check whether the new addition violates a constraint,
+        //  because we knew that we were in a sane state the previous iteration.
+        if violates_constraints(&sudoku, indices[depth], next_guess) {
             // We don't need to undo the previous set_raw because it'll be overridden
             // in the next pass, either by a new value, or with Empty when we backtrack
             // to the above depth.
@@ -135,23 +138,53 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     Ok(())
 }
 
-fn violates_constraints(sudoku: &Sudoku) -> bool {
-    // Go over pairs of non-empty cells
-    sudoku
-        .nonempty()
-        .tuple_combinations()
-        .filter(|((r, c), (rr, cc))| {
-            if r == rr && c == cc {
-                return false;
+fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: u8) -> bool {
+    let (r, c) = (last_changed / sudoku.side(), last_changed % sudoku.side());
+    let side = sudoku.side();
+
+    // Check row
+    for cc in 0..side {
+        if cc == c {
+            continue;
+        }
+        let element = sudoku.get(r, cc);
+        if element.empty() {
+            continue;
+        }
+        if element.unwrap() == new_value {
+            return true;
+        }
+    }
+
+    // Check column
+    for rr in 0..side {
+        if rr == r {
+            continue;
+        }
+        let element = sudoku.get(rr, c);
+        if element.empty() {
+            continue;
+        }
+        if element.unwrap() == new_value {
+            return true;
+        }
+    }
+
+    // Check box
+    for h in 1..=2 {
+        for v in 1..=2 {
+            let rr = 3*(r/3) + (r + v)%3;
+            let cc = 3*(c/3) + (c + h)%3;
+
+            let element = sudoku.get(rr, cc);
+            if element.empty() {
+                continue;
             }
-            if r == rr || c == cc {
+            if element.unwrap() == new_value {
                 return true;
             }
-            let r_check = *rr as isize - 3 * (r / 3) as isize;
-            let c_check = *cc as isize - 3 * (c / 3) as isize;
-            r_check >= 0 && r_check < 3 && c_check >= 0 && c_check < 3
-        })
-        .any(|((r, c), (rr, cc))| {
-            sudoku.get(r, c).unwrap() == sudoku.get(rr, cc).unwrap()
-        })
+        }
+    }
+
+    return false;
 }
