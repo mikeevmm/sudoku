@@ -208,6 +208,8 @@ impl<R: Read> Parser<R> {
         match next {
             Some(c) => {
                 if predicate(c) {
+                    self.next()
+                        .expect("The peek() above should already have ruled out an error.");
                     Ok(Some(c))
                 } else {
                     Ok(None)
@@ -221,10 +223,7 @@ impl<R: Read> Parser<R> {
         while let Some(c) = self
             .try_match_predicate(|c| c.is_whitespace() && c != '\n' && c != '\r')
             .eof_ok()?
-        {
-            self.expect(c)
-                .expect("try_match_predicate should have guaranteed a space");
-        }
+        {}
         Ok(())
     }
 }
