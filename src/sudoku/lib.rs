@@ -8,6 +8,37 @@ pub enum SudokuCell {
     Digit(usize),
 }
 
+impl SudokuCell {
+    pub fn empty(&self) -> bool {
+        match self {
+            SudokuCell::Empty => true,
+            _ => false,
+        }
+    }
+}
+
+pub trait SudokuCellUnwrap {
+    fn unwrap(self) -> usize;
+}
+
+impl SudokuCellUnwrap for SudokuCell {
+    fn unwrap(self) -> usize {
+        match self {
+            SudokuCell::Empty => panic!("Tried to unwrap an empty sudoku cell."),
+            SudokuCell::Digit(d) => d,
+        }
+    }
+}
+
+impl SudokuCellUnwrap for &SudokuCell {
+    fn unwrap(self) -> usize {
+        match self {
+            SudokuCell::Empty => panic!("Tried to unwrap an empty sudoku cell."),
+            SudokuCell::Digit(d) => *d,
+        }
+    }
+}
+
 impl TryFrom<char> for SudokuCell {
     type Error = char;
 
@@ -35,13 +66,18 @@ impl Sudoku {
         }
     }
 
-    pub fn set(&mut self, row: usize, column: usize, value: SudokuCell) -> Result<(), ()> {
+    pub fn side(&self) -> usize {
+        self.side
+    }
+
+    pub fn set(&mut self, row: usize, column: usize, value: SudokuCell) {
         let index = row * self.side + column;
-        if index >= self.values.len() {
-            return Err(());
-        }
         self.values[index] = value;
-        Ok(())
+    }
+
+    pub fn get(&self, row: usize, column: usize) -> &SudokuCell {
+        let index = row * self.side + column;
+        &self.values[index]
     }
 }
 

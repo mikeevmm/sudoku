@@ -70,9 +70,6 @@ fn main() {
         }
     };
 
-    println!("{}", input);
-    std::process::exit(0);
-
     let result = solver::backtrack(input);
 
     match result {

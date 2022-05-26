@@ -8,4 +8,5 @@ name = "backtrack"
 path = "src/backtrack/main.rs"
 
 [dependencies]
+itertools = "0.10.3"
 
