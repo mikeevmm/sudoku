@@ -37,7 +37,7 @@ fn main() {
                 println!("{}", HELP);
                 std::process::exit(0);
             }
-            "-" => parsing::parse(std::io::stdin()),
+            "-" => parsing::sudoku::parse(std::io::stdin()),
             path => {
                 let path = PathBuf::from(path);
                 let path_as_str = path.clone().to_string_lossy().to_string();
@@ -56,7 +56,7 @@ fn main() {
                 }
                 let reader = reader.unwrap();
 
-                parsing::parse(reader)
+                parsing::sudoku::parse(reader)
             }
         },
     };
