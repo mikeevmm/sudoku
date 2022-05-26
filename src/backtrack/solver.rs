@@ -1,6 +1,6 @@
 use crate::sudoku::{Sudoku, SudokuCell, SudokuCellUnwrap};
-use itertools::{Combinations, Itertools};
-use std::{cmp::Ordering, collections::BTreeSet, fmt::Display};
+use itertools::Itertools;
+use std::{collections::BTreeSet};
 
 pub enum SolveError {
     Infeasible,
@@ -154,10 +154,4 @@ fn violates_constraints(sudoku: &Sudoku) -> bool {
         .any(|((r, c), (rr, cc))| {
             sudoku.get(r, c).unwrap() == sudoku.get(rr, cc).unwrap()
         })
-}
-
-impl Display for SolveError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
 }

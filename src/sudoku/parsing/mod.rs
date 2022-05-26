@@ -107,6 +107,7 @@ impl<R: Read> SudokuCharIter<R> {
     }
 }
 
+#[allow(dead_code)]
 impl<R: Read> Parser<R> {
     fn new(inner: SudokuCharIter<R>) -> Self {
         Self {
@@ -219,9 +220,10 @@ impl<R: Read> Parser<R> {
     }
 
     fn eat_space(&mut self) -> Result<(), ParseError> {
-        while let Some(c) = self
+        while self
             .try_match_predicate(|c| c.is_whitespace() && c != '\n' && c != '\r')
             .eof_ok()?
+            .is_some()
         {}
         Ok(())
     }
