@@ -1,7 +1,7 @@
 use self::chars_reader::{CharReader, CharReaderError};
 use std::{convert::Infallible, iter::Peekable, marker::PhantomData};
 
-mod chars_reader;
+pub mod chars_reader;
 pub mod sudoku;
 
 #[derive(Debug)]
@@ -52,7 +52,7 @@ impl AllowEof for Result<bool, ParseError> {
     }
 }
 
-trait DefaultParseError<T, P, I, E>
+pub trait DefaultParseError<T, P, I, E>
 where
     I: Iterator<Item = Result<char, E>>,
     P: ParserCharIter<I, E>,
@@ -235,6 +235,35 @@ where
         }
     }
 
+    pub fn expect_integer(&mut self) -> Result<usize, ParseError> {
+        match self
+            .collect_predicate(|c| c.is_ascii_digit())?
+            .parse::<usize>()
+        {
+            Err(_) => Err(ParseError::UnexpectedEof),
+            Ok(value) => Ok(value),
+        }
+    }
+
+    pub fn expect_float(&mut self) -> Result<f64, ParseError> {
+        let mut float_str = String::new();
+        if let Some(c) = self.try_match_predicate(|c| c == '+' || c == '-')? {
+            float_str.push(c);
+        }
+        float_str.extend(self.collect_predicate(|c| c.is_ascii_digit())?.chars());
+        if self.try_match('.')? {
+            float_str.push('.');
+            float_str.extend(self.collect_predicate(|c| c.is_ascii_digit())?.chars());
+
+            if self.try_match('e')? || self.try_match('E')? {}
+        }
+        let float = float_str.parse::<f64>();
+        if float.is_err() {
+            return Err(ParseError::UnexpectedEof);
+        }
+        Ok(float.unwrap())
+    }
+
     pub fn try_match(&mut self, to_match: char) -> Result<bool, ParseError> {
         let next = ParserCharIter::peek(&mut self.inner)?;
         match next {
@@ -311,5 +340,19 @@ where
             );
         }
         Ok(path)
+    }
+
+    pub fn discard_predicate<K>(&mut self, predicate: K) -> Result<(), ParseError>
+    where
+        K: Fn(&char) -> bool,
+    {
+        while let Some(c) = ParserCharIter::peek(&mut self.inner)? {
+            if !predicate(&c) {
+                break;
+            }
+            self.next()
+                .expect("The peek() before should prevent errors here.");
+        }
+        Ok(())
     }
 }
