@@ -7,6 +7,12 @@ pub struct Schedule {
     pub rounds: Vec<usize>,
 }
 
+impl Schedule {
+    pub fn run(&self) -> impl Iterator<Item = (&f64, &usize)> {
+        self.temperatures.iter().zip(self.rounds.iter())
+    }
+}
+
 pub fn parse<R: Read>(from: R) -> Result<Schedule, String> {
     let mut parser = parsing::Parser::new(CharReader::new(from));
 

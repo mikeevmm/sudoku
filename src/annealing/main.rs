@@ -5,6 +5,7 @@ use sudoku::*;
 mod schedule;
 #[path = "../sudoku/lib.rs"]
 mod sudoku;
+mod solver;
 
 const HEADER: &'static str = r#"annealing solver for sudoku
 "#;
@@ -126,5 +127,13 @@ fn main() {
         }
     };
 
-    todo!()
+    let result = solver::anneal(&mut input, schedule);
+
+    match result {
+        Ok(()) => {
+            println!("Success. Solution:\n{}", input);
+            std::process::exit(0);
+        }
+        Err(_) => todo!()
+    }
 }
