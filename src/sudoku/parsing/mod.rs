@@ -316,13 +316,16 @@ where
         }
     }
 
-    pub fn eat_space(&mut self) -> Result<(), ParseError> {
+    pub fn eat_space(&mut self) -> Result<bool, ParseError> {
+        let mut ate_any = false;
         while self
             .try_match_predicate(|c| c.is_whitespace() && c != '\n' && c != '\r')
             .eof_ok()?
             .is_some()
-        {}
-        Ok(())
+        {
+            ate_any = true;
+        }
+        Ok(ate_any)
     }
 
     pub fn collect_predicate<K>(&mut self, predicate: K) -> Result<String, ParseError>

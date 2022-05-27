@@ -1,4 +1,4 @@
-use crate::sudoku::{Sudoku, SudokuCell, SudokuCellUnwrap};
+use crate::sudoku::{Sudoku, SudokuCell, SudokuCellValue};
 use itertools::Itertools;
 use std::collections::BTreeSet;
 
@@ -9,7 +9,9 @@ pub enum SolveError {
 pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     // Start by making a list of compatible digits
     let side = sudoku.side();
-    let mut incompatible = vec![BTreeSet::<u8>::new(); side * sudoku.side()];
+    let box_side = sudoku.box_side();
+    let digit_range = box_side * box_side;
+    let mut incompatible = vec![BTreeSet::<usize>::new(); side * sudoku.side()];
 
     // Iterate over pairs of elements.
     // We should only consider a pair if both elements lie on the same row,
@@ -38,6 +40,8 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     //  to the same box, we can check that
     //
     //      r' - 3·floor(r/3) ∈ {0,1,2}  &   c' - 3·floor(c/3) ∈ {0,1,2}
+    //
+    //  The logic follows analogously for a box side different from 3.
     let pairs_to_check = (0..side)
         .cartesian_product(0..side)
         .tuple_combinations()
@@ -48,25 +52,24 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
             if r == rr || c == cc {
                 return true;
             }
-            let r_check = *rr as isize - 3 * (r / 3) as isize;
-            let c_check = *cc as isize - 3 * (c / 3) as isize;
-            r_check >= 0 && r_check < 3 && c_check >= 0 && c_check < 3
+            let r_check = *rr as isize - (box_side * (r / box_side)) as isize;
+            let c_check = *cc as isize - (box_side * (c / box_side)) as isize;
+            r_check >= 0 && (r_check as usize) < box_side && c_check >= 0 && (c_check as usize) < box_side
         });
 
     let mut subject_to = |this: (usize, usize), that: (usize, usize)| {
         let index = this.0 * side + this.1;
         let this_cell = sudoku.get(this.0, this.1);
-        if this_cell.empty() {
+        if this_cell.is_empty() {
             let that_cell = sudoku.get(that.0, that.1);
-            if !that_cell.empty() {
+            if !that_cell.is_empty() {
                 incompatible[index].insert(that_cell.unwrap());
             }
         } else {
             // If this cell has been given, we can't change it!
             // We also know that we will only see this cell (as `this`) once.
             // (We will also only see it as `that` once.)
-            let value = this_cell.unwrap();
-            incompatible[index].extend((1..value).chain((value + 1)..=9));
+            incompatible[index].extend((1..=digit_range));
         }
     };
 
@@ -82,9 +85,9 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     // to what
     // Since we're iterating over the elements of `incompatible`, let's also turn them
     // into the elements that ARE compatible, into a vec sorted by ascending order.
-    let (indices, compatible): (Vec<usize>, Vec<Vec<u8>>) = incompatible
+    let (indices, compatible): (Vec<usize>, Vec<Vec<usize>>) = incompatible
         .into_iter()
-        .map(|set| (1..=9).filter(|d| !set.contains(d)).collect::<Vec<u8>>())
+        .map(|set| (1..=digit_range).filter(|d| !set.contains(d)).collect::<Vec<usize>>())
         .enumerate()
         .sorted_unstable_by_key(|(_i, x)| -(x.len() as isize))
         .unzip();
@@ -138,9 +141,10 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     Ok(())
 }
 
-fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: u8) -> bool {
+fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: usize) -> bool {
     let (r, c) = (last_changed / sudoku.side(), last_changed % sudoku.side());
     let side = sudoku.side();
+    let box_side = sudoku.box_side();
 
     // Check row
     for cc in 0..side {
@@ -148,7 +152,7 @@ fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: u8) -> 
             continue;
         }
         let element = sudoku.get(r, cc);
-        if element.empty() {
+        if element.is_empty() {
             continue;
         }
         if element.unwrap() == new_value {
@@ -162,7 +166,7 @@ fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: u8) -> 
             continue;
         }
         let element = sudoku.get(rr, c);
-        if element.empty() {
+        if element.is_empty() {
             continue;
         }
         if element.unwrap() == new_value {
@@ -171,13 +175,13 @@ fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: u8) -> 
     }
 
     // Check box
-    for h in 1..=2 {
-        for v in 1..=2 {
-            let rr = 3*(r/3) + (r + v)%3;
-            let cc = 3*(c/3) + (c + h)%3;
+    for h in 1..box_side {
+        for v in 1..box_side {
+            let rr = box_side*(r/box_side) + (r + v)%box_side;
+            let cc = box_side*(c/box_side) + (c + h)%box_side;
 
             let element = sudoku.get(rr, cc);
-            if element.empty() {
+            if element.is_empty() {
                 continue;
             }
             if element.unwrap() == new_value {

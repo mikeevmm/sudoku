@@ -5,11 +5,11 @@ pub mod parsing;
 #[derive(Debug, Clone)]
 pub enum SudokuCell {
     Empty,
-    Digit(u8),
+    Digit(usize),
 }
 
 impl SudokuCell {
-    pub fn empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         match self {
             SudokuCell::Empty => true,
             _ => false,
@@ -17,12 +17,20 @@ impl SudokuCell {
     }
 }
 
-pub trait SudokuCellUnwrap {
-    fn unwrap(self) -> u8;
+pub trait SudokuCellValue {
+    fn value(&self) -> Option<usize>;
+    fn unwrap(self) -> usize;
 }
 
-impl SudokuCellUnwrap for SudokuCell {
-    fn unwrap(self) -> u8 {
+impl SudokuCellValue for SudokuCell {
+    fn value(&self) -> Option<usize> {
+        match self {
+            SudokuCell::Empty => None,
+            SudokuCell::Digit(d) => Some(*d),
+        }
+    }
+
+    fn unwrap(self) -> usize {
         match self {
             SudokuCell::Empty => panic!("Tried to unwrap an empty sudoku cell."),
             SudokuCell::Digit(d) => d,
@@ -30,8 +38,15 @@ impl SudokuCellUnwrap for SudokuCell {
     }
 }
 
-impl SudokuCellUnwrap for &SudokuCell {
-    fn unwrap(self) -> u8 {
+impl SudokuCellValue for &SudokuCell {
+    fn value(&self) -> Option<usize> {
+        match self {
+            SudokuCell::Empty => None,
+            SudokuCell::Digit(d) => Some(*d),
+        }
+    }
+
+    fn unwrap(self) -> usize {
         match self {
             SudokuCell::Empty => panic!("Tried to unwrap an empty sudoku cell."),
             SudokuCell::Digit(d) => *d,
@@ -47,14 +62,30 @@ impl TryFrom<char> for SudokuCell {
             return Ok(SudokuCell::Empty);
         }
         if let Some(d) = value.to_digit(10) {
-            return Ok(SudokuCell::Digit(d as u8));
+            return Ok(SudokuCell::Digit(d as usize));
         }
         return Err(value);
     }
 }
 
+impl TryFrom<String> for SudokuCell {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.chars().all(|c| c == '_') {
+            Ok(SudokuCell::Empty)
+        } else if let Ok(value) = value.parse::<usize>() {
+            Ok(SudokuCell::Digit(value))
+        } else {
+            Err(value)
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Sudoku {
     side: usize,
+    box_side: usize,
     values: Vec<SudokuCell>, // Row-major
 }
 
@@ -62,12 +93,17 @@ impl Sudoku {
     pub fn empty(side: usize) -> Self {
         Sudoku {
             side,
+            box_side: (side as f32).sqrt() as usize,
             values: vec![SudokuCell::Empty; side * side],
         }
     }
 
     pub fn side(&self) -> usize {
         self.side
+    }
+
+    pub fn box_side(&self) -> usize {
+        self.box_side
     }
 
     pub fn set(&mut self, row: usize, column: usize, value: SudokuCell) {
@@ -83,6 +119,11 @@ impl Sudoku {
     pub fn set_raw(&mut self, index: usize, value: SudokuCell) {
         self.values[index] = value;
     }
+
+    pub fn get_raw(&self, index: usize) -> &SudokuCell {
+        &self.values[index]
+    }
+
 }
 
 impl Display for Sudoku {

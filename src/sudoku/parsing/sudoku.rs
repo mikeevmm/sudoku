@@ -1,12 +1,12 @@
 use super::*;
-use crate::sudoku::Sudoku;
+use crate::sudoku::{Sudoku, SudokuCell, SudokuCellValue};
 use std::io::Read;
 
 pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
     let mut parser = Parser::new(CharReader::new(reader));
 
     // Read the first line. This will give a hint as to the size of the board.
-    let mut first_line = Vec::<char>::new();
+    let mut first_line = Vec::<String>::new();
     match_line(&mut parser, |_i, c| {
         first_line.push(c);
         Ok(())
@@ -22,15 +22,35 @@ pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
         .to_string());
     }
 
+    let box_size = (side as f32).sqrt() as usize;
+    if box_size * box_size != side {
+        return Err(concat!(
+            "Your board side length needs to be a perfect square, ",
+            "or you can't define boxes well."
+        )
+        .to_string());
+    }
+    let digit_range = box_size * box_size;
+
     // We've read the first line.
     // We can instantiate a board of the correct size, and start filling it in
     let mut sudoku = Sudoku::empty(side);
 
     // Plug back in the information from the first line.
     for (i, c) in first_line.into_iter().enumerate() {
-        let d = c
+        let d: SudokuCell = c
             .try_into()
             .map_err(|c| format!("Sorry, I don't know how to read '{}' as a cell.", c))?;
+
+        // We should only allow values 1..=box_side!
+        if let Some(d) = d.value() {
+            if d > digit_range {
+                return Err(format!(
+                    "Your sudoku has boxes of {box_size}x{box_size}, but you wrote {d} in one of them. Please use values from 1 to {digit_range}.",
+                ));
+            }
+        }
+
         sudoku.set(0, i, d);
     }
 
@@ -41,9 +61,16 @@ pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
             if i >= side {
                 return Err(format!("There are too many elements on line {}!", line));
             }
-            let d = c
+            let d: SudokuCell = c
                 .try_into()
                 .map_err(|c| format!("Sorry, I don't know how to read '{}' as a cell.", c))?;
+            if let Some(d) = d.value() {
+                if d > digit_range {
+                    return Err(format!(
+                        "Your sudoku has boxes of {box_size}x{box_size}, but you wrote {d} in one of them. Please use values from 1 to {digit_range}.",
+                    ));
+                }
+            }
             sudoku.set(line, i, d);
             Ok(())
         })?;
@@ -69,10 +96,13 @@ pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
     Ok(sudoku)
 }
 
-fn match_line<I, F>(parser: &mut Parser<Peekable<I>, I, CharReaderError>, mut on_char: F) -> Result<(), String>
+fn match_line<I, F>(
+    parser: &mut Parser<Peekable<I>, I, CharReaderError>,
+    mut on_char: F,
+) -> Result<(), String>
 where
     I: Iterator<Item = Result<char, CharReaderError>>,
-    F: FnMut(usize, char) -> Result<(), String>,
+    F: FnMut(usize, String) -> Result<(), String>,
 {
     if let Ok(true) = parser.try_match_eof() {
         return Err(concat!(
@@ -88,10 +118,10 @@ where
     let mut index = 0;
     loop {
         let next = parser
-            .expect_predicate(|c| c.is_digit(10) || c == '_')
+            .collect_predicate(|&c| c.is_digit(10) || c == '_')
             .map_err(|err| match err {
                 ParseError::UnexpectedChar(c) => parser.err(format!(
-                    "Expected a digit or an underscore, but found a '{}'.",
+                    "Expected an integer or an underscore, but found a '{}'.",
                     c
                 )),
                 _ => parser.default_err_msg(err),
@@ -101,17 +131,21 @@ where
         index += 1;
 
         // Eat trailing whitespace
-        parser.eat_space().with_default_err_msgs(&parser)?;
+        // We need at least one space
+        if !parser.eat_space().with_default_err_msgs(&parser)? {
+            // If we match an EOF or new line, we've finished parsing the line
+            if parser.try_match_eof().with_default_err_msgs(&parser)? {
+                break; // Matched EOF
+            }
 
-        // If we match an EOF or new line, we've finished parsing the line
-        if parser.try_match_eof().with_default_err_msgs(&parser)? {
-            break; // Matched EOF
+            parser.try_match('\r').with_default_err_msgs(&parser)?;
+            if parser.try_match('\n').with_default_err_msgs(&parser)? {
+                break; // Matched new line
+            }
+
+            return Err(parser.err("Expected a space after a number.".to_string()));
         }
 
-        parser.try_match('\r').with_default_err_msgs(&parser)?;
-        if parser.try_match('\n').with_default_err_msgs(&parser)? {
-            break; // Matched new line
-        }
     }
 
     Ok(())
