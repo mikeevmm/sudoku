@@ -283,7 +283,7 @@ where
                     Ok(None)
                 }
             }
-            None => Err(ParseError::UnexpectedEof),
+            None => Ok(None),
         }
     }
 
@@ -298,11 +298,17 @@ where
 
     pub fn collect_predicate<K>(&mut self, predicate: K) -> Result<String, ParseError>
     where
-        K: Fn(&char) -> bool
+        K: Fn(&char) -> bool,
     {
         let mut path = String::new();
-        while ParserCharIter::peek(&mut self.inner)?.is_some() {
-            path.push(self.next()?);
+        while let Some(c) = ParserCharIter::peek(&mut self.inner)? {
+            if !predicate(&c) {
+                break;
+            }
+            path.push(
+                self.next()
+                    .expect("The peek() before should prevent errors here."),
+            );
         }
         Ok(path)
     }
