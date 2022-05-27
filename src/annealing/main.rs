@@ -1,5 +1,5 @@
-use std::path::PathBuf;
-use sudoku::parsing;
+use std::convert::Infallible;
+use sudoku::parsing::{ParseError, Parser};
 
 #[path = "../sudoku/lib.rs"]
 mod sudoku;
@@ -25,63 +25,52 @@ The input file is expected to be in .soduku format.
     include_str!("../../FORMATTING.txt")
 );
 
+trait ErrorToHelp<T> {
+    fn or_help(self, code: i32) -> T;
+}
+
+impl<T> ErrorToHelp<T> for Result<T, ParseError> {
+    fn or_help(self, code: i32) -> T {
+        self.unwrap_or_else(|_| {
+            println!("{}", HELP);
+            std::process::exit(code);
+        })
+    }
+}
+
+impl ErrorToHelp<Infallible> for ParseError {
+    fn or_help(self, code: i32) -> Infallible {
+        println!("{}", HELP);
+        std::process::exit(code);
+    }
+}
+
 fn main() {
     let mut args = std::env::args().skip(1); // Skip the filename
-    let args = args.map(|arg| arg.chars().chain(' ')).flatten();
 
-    let input = match args.next() {
-        None => {
-            eprintln!("{}", HELP);
-            std::process::exit(1);
-        }
-        Some(string) => match string.as_str() {
-            "--help" => {
-                println!("{}", HELP);
-                std::process::exit(0);
+    while let Some(arg) = args.next() {
+        // I'm sorry
+        let mut parser = Parser::new(arg.chars().map::<Result<char, Infallible>, _>(|x| Ok(x)));
+
+        match parser.try_match_str("--") {
+            Err(ParseError::UnexpectedEof) => {
+                ParseError::UnexpectedEof.or_help(1);
             }
-            "-" => parsing::sudoku::parse(std::io::stdin()),
-            path => {
-                let path = PathBuf::from(path);
-                let path_as_str = path.clone().to_string_lossy().to_string();
-                if !path.exists() {
-                    eprintln!("{} does not exist.", &path_as_str);
-                    std::process::exit(1);
-                }
+            Err(e) => panic!("{:?}", e),
+            Ok(false) => {}
+            Ok(true) => {
+                // Matched --
+                if parser.try_match_str("help").or_help(1) {
 
-                let reader = std::fs::File::open(path);
-                if let Err(e) = reader {
-                    eprintln!(
-                        "Could not open {} for reading.\nWith error {}",
-                        &path_as_str, e
-                    );
-                    std::process::exit(1);
                 }
-                let reader = reader.unwrap();
+                parser.expect_str("rate").or_help(1);
+                parser.try_match('=').or_help(1);
+                parser.eat_space().or_help(1);
+                // Matched --rate
 
-                parsing::sudoku::parse(reader)
             }
-        },
-    };
-
-    let mut input = match input {
-        Ok(input) => input,
-        Err(e) => {
-            println!("Input board malformed.");
-            println!("{}", e);
-            std::process::exit(1);
-        }
-    };
-
-    let result = solver::backtrack(&mut input);
-
-    match result {
-        Ok(()) => {
-            println!("Success. Solution:\n{}", input);
-            std::process::exit(0);
-        }
-        Err(SolveError::Infeasible) => {
-            eprintln!("The input board is infeasible. This is as far as I got:\n{}", input);
-            std::process::exit(1);
         }
     }
+
+    todo!()
 }

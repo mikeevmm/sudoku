@@ -56,7 +56,6 @@ impl TryFrom<char> for SudokuCell {
 pub struct Sudoku {
     side: usize,
     values: Vec<SudokuCell>, // Row-major
-    set: BTreeSet<usize>,
 }
 
 impl Sudoku {
@@ -64,7 +63,6 @@ impl Sudoku {
         Sudoku {
             side,
             values: vec![SudokuCell::Empty; side * side],
-            set: BTreeSet::new(),
         }
     }
 
@@ -74,10 +72,6 @@ impl Sudoku {
 
     pub fn set(&mut self, row: usize, column: usize, value: SudokuCell) {
         let index = row * self.side + column;
-        match value {
-            SudokuCell::Digit(_) => self.set.insert(index),
-            SudokuCell::Empty => self.set.remove(&index),
-        };
         self.values[index] = value;
     }
 
@@ -87,15 +81,7 @@ impl Sudoku {
     }
 
     pub fn set_raw(&mut self, index: usize, value: SudokuCell) {
-        match value {
-            SudokuCell::Digit(_) => self.set.insert(index),
-            SudokuCell::Empty => self.set.remove(&index),
-        };
         self.values[index] = value;
-    }
-
-    pub fn nonempty(&self) -> impl Iterator<Item = (usize, usize)> + Clone + '_ {
-        self.set.iter().map(|i| (i / self.side, i % self.side))
     }
 }
 

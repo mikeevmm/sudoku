@@ -209,6 +209,13 @@ where
         }
     }
 
+    pub fn expect_str(&mut self, to_match: &str) -> Result<(), ParseError> {
+        for char in to_match.chars() {
+            self.expect(char)?;
+        }
+        Ok(())
+    }
+
     pub fn expect_eof(&mut self) -> Result<(), ParseError> {
         match ParserCharIter::peek(&mut self.inner) {
             Ok(None) => Ok(()),
@@ -242,6 +249,15 @@ where
             }
             None => Err(ParseError::UnexpectedEof),
         }
+    }
+
+    pub fn try_match_str(&mut self, to_match: &str) -> Result<bool, ParseError> {
+        for char in to_match.chars() {
+            if !self.try_match(char)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     pub fn try_match_eof(&mut self) -> Result<bool, ParseError> {
