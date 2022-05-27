@@ -17,12 +17,13 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     // We should only consider a pair if both elements lie on the same row,
     // or the same column, or are in the same box. We disregard pairs of that
     // are the same element twice.
+    // TODO: This could probably be optimized.
     let pairs_to_check = (0..side)
         .cartesian_product(0..side)
         .tuple_combinations()
         .filter(|((r, c), (rr, cc))| {
             if r == rr && c == cc {
-                return false;
+                return false; // This should never happen, due to the behavior of tuple_combinations()
             }
             if r == rr || c == cc {
                 return true;
@@ -33,14 +34,12 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     let mut subject_to = |this: (usize, usize), that: (usize, usize)| {
         let index = this.0 * side + this.1;
         let this_cell = sudoku.get(this.0, this.1);
+
         if this_cell.is_empty() {
             if let Some(value) = sudoku.get(that.0, that.1).value() {
                 incompatible[index].insert(value);
             }
         } else {
-            // If this cell has been given, we can't change it!
-            // We also know that we will only see this cell (as `this`) once.
-            // (We will also only see it as `that` once.)
             incompatible[index].extend(1..=digit_range);
         }
     };
@@ -49,6 +48,8 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
         subject_to(left, right);
         subject_to(right, left);
     }
+
+    drop(subject_to);
 
     // Now let us sort the cells by ascending cardinality OF COMPATIBILITY
     // Since we've kept track of the incompatible digits, this means sorting
@@ -65,15 +66,13 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
                 .collect::<Vec<usize>>()
         })
         .enumerate()
+        .filter(|(_, x)| x.len() > 0)
         .sorted_unstable_by_key(|(_i, x)| -(x.len() as isize))
         .unzip();
 
-    println!("{:?}", indices);
-    println!("{:?}", compatible);
-
     // Start doing the backtracking
-    let mut depth = 0;
-    let mut pointer = vec![0_usize; indices.len()];
+    let mut depth = 0; // The index of the string character being tested.
+    let mut pointer = vec![0_usize; indices.len()]; // The character being tested, for each depth.
     loop {
         // Have we exhausted the possibilities at this depth?
         if pointer[depth] == compatible[depth].len() {
@@ -94,8 +93,8 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
         //println!("Trying depth {}, character {}", depth, pointer[depth]);
         sudoku.set_raw(indices[depth], SudokuCell::Digit(next_guess));
 
-        println!("{}", sudoku);
-        std::io::stdin().read_line(&mut String::new()).ok();
+        //println!("{}", sudoku);
+        //std::io::stdin().read_line(&mut String::new()).ok();
 
         // If constraint is violated, try the next compatible digit
         // We only need to check whether the new addition violates a constraint,
@@ -121,9 +120,9 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
 }
 
 fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: usize) -> bool {
-    let (r, c) = (last_changed / sudoku.side(), last_changed % sudoku.side());
     let side = sudoku.side();
     let box_side = sudoku.box_side();
+    let (r, c) = (last_changed / side, last_changed % side);
 
     // Check row
     for cc in 0..side {
