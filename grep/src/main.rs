@@ -108,8 +108,8 @@ fn main() {
     drop(filled_count);
 
     // Print the sudoku with colors
-    for c in 0..side {
-        for r in 0..side {
+    for r in 0..side {
+        for c in 0..side {
             if let Some(value) = input.get(r, c).value() {
                 if invalid.contains(&(r * side + c)) {
                     print!("{} ", value.to_string().red())
