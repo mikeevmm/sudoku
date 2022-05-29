@@ -244,7 +244,14 @@ where
             float_str.push('.');
             float_str.extend(self.collect_predicate(|c| c.is_ascii_digit())?.chars());
 
-            if self.try_match('e')? || self.try_match('E')? {}
+            if self.try_match('e')? || self.try_match('E')? {
+                float_str.push('e');
+                if let Some(c) = self.try_match_predicate(|c| c == '+' || c == '-')? {
+                    float_str.push(c);
+                }
+                let exponent = self.expect_integer()?;
+                float_str.push_str(&exponent.to_string());
+            }
         }
         let float = float_str.parse::<f64>();
         if float.is_err() {
