@@ -30,19 +30,8 @@ pub trait AllowEof {
     fn eof_ok(self) -> Result<Self::Return, ParseError>;
 }
 
-impl AllowEof for Result<Option<char>, ParseError> {
-    type Return = Option<char>;
-    fn eof_ok(self) -> Result<Self::Return, ParseError> {
-        match self {
-            Ok(value) => Ok(value),
-            Err(ParseError::UnexpectedEof) => Ok(None),
-            Err(err) => Err(err),
-        }
-    }
-}
-
-impl AllowEof for Result<bool, ParseError> {
-    type Return = Option<bool>;
+impl<T> AllowEof for Result<T, ParseError> {
+    type Return = Option<T>;
     fn eof_ok(self) -> Result<Self::Return, ParseError> {
         match self {
             Ok(value) => Ok(Some(value)),
@@ -319,8 +308,7 @@ where
     pub fn eat_space(&mut self) -> Result<bool, ParseError> {
         let mut ate_any = false;
         while self
-            .try_match_predicate(|c| c.is_whitespace() && c != '\n' && c != '\r')
-            .eof_ok()?
+            .try_match_predicate(|c| c.is_whitespace() && c != '\n' && c != '\r')?
             .is_some()
         {
             ate_any = true;

@@ -1,0 +1,12 @@
+[package]
+name = "backtrack"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "backtrack"
+path = "src/main.rs"
+
+[dependencies]
+itertools = "0.10.3"
+sudoku = { path = "../sudoku" }

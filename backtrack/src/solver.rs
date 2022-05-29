@@ -1,4 +1,4 @@
-use crate::sudoku::{Sudoku, SudokuCell, SudokuCellValue};
+use sudoku::{Sudoku, SudokuCell, SudokuCellValue};
 use itertools::Itertools;
 use std::collections::BTreeSet;
 
@@ -155,7 +155,7 @@ fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: usize) 
             let rr = box_side * (r / box_side) + v;
             let cc = box_side * (c / box_side) + h;
 
-            if rr == r && cc == c {
+            if rr == r || cc == c { // we've already checked same row & same col
                 continue;
             }
 

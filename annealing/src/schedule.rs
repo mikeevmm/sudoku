@@ -1,6 +1,9 @@
+use sudoku::parsing::AllowEof;
+
 use crate::parsing::chars_reader::CharReader;
 use crate::parsing::{self, DefaultParseError};
 use std::io::Read;
+use std::iter;
 
 pub struct Schedule {
     pub temperatures: Vec<f64>,
@@ -8,8 +11,12 @@ pub struct Schedule {
 }
 
 impl Schedule {
-    pub fn run(&self) -> impl Iterator<Item = (&f64, &usize)> {
-        self.temperatures.iter().zip(self.rounds.iter())
+    pub fn run(&self) -> impl Iterator<Item = &f64> {
+        self.temperatures
+            .iter()
+            .zip(self.rounds.iter())
+            .map(|(t, &r)| (0..r).map(move |_| t))
+            .flatten()
     }
 }
 
@@ -27,8 +34,13 @@ pub fn parse<R: Read>(from: R) -> Result<Schedule, String> {
 
         // If we see an '#', just discard everything until a newline is found
         if parser.try_match('#').with_default_err_msgs(&parser)? {
-            parser.discard_predicate(|&c| c != '\n').with_default_err_msgs(&parser)?;
-            parser.try_match('\n').with_default_err_msgs(&parser)?;
+            parser
+                .discard_predicate(|&c| c != '\n')
+                .with_default_err_msgs(&parser)?;
+            parser
+                .expect('\n')
+                .eof_ok()
+                .with_default_err_msgs(&parser)?;
             continue;
         }
 
@@ -36,7 +48,7 @@ pub fn parse<R: Read>(from: R) -> Result<Schedule, String> {
         temperatures.push(parser.expect_float().with_default_err_msgs(&parser)?);
         parser.eat_space().with_default_err_msgs(&parser)?;
         rounds.push(parser.expect_integer().with_default_err_msgs(&parser)?);
-        
+
         // Eat trailing whitespace
         parser.eat_space().with_default_err_msgs(&parser)?;
 

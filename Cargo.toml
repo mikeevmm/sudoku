@@ -1,16 +1,7 @@
-[package]
-name = "sudoku"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-[[bin]]
-name = "backtrack"
-path = "src/backtrack/main.rs"
-
-[[bin]]
-name = "annealing"
-path = "src/annealing/main.rs"
-
-[dependencies]
-itertools = "0.10.3"
-
+members = [
+    "backtrack",
+    "annealing",
+    "sudoku",
+]

@@ -124,6 +124,9 @@ impl Sudoku {
         &self.values[index]
     }
 
+    pub fn swap_raw(&mut self, raw_a: usize, raw_b: usize) {
+        self.values.swap(raw_a, raw_b);
+    }
 }
 
 impl Display for Sudoku {

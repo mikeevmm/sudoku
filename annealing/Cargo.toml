@@ -1,0 +1,13 @@
+[package]
+name = "annealing"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "annealing"
+path = "src/main.rs"
+
+[dependencies]
+alea = "0.2.2"
+itertools = "0.10.3"
+sudoku = { path = "../sudoku" }

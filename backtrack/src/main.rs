@@ -3,8 +3,6 @@ use std::path::PathBuf;
 use solver::SolveError;
 use sudoku::parsing;
 
-#[path = "../sudoku/lib.rs"]
-mod sudoku;
 mod solver;
 
 const HELP: &'static str = concat!(
