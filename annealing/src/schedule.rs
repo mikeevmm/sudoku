@@ -30,6 +30,9 @@ pub fn parse<R: Read>(from: R) -> Result<Schedule, String> {
 
         // Consume initial whitespace
         parser.eat_space().with_default_err_msgs(&parser)?;
+        if parser.try_match_eof().with_default_err_msgs(&parser)? {
+            break;
+        }
 
         // If we see an '#', just discard everything until a newline is found
         if parser.try_match('#').with_default_err_msgs(&parser)? {
