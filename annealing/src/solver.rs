@@ -25,14 +25,10 @@ pub fn anneal(
     let side = sudoku.side();
     let box_side = sudoku.box_side();
 
-    let (free_indices, initial_values) = match init {
+    let free_indices = match init {
         Some(init) => init_hint(sudoku, init, side)?,
         None => init_no_hint(sudoku, side, side)?,
     };
-
-    for (index, value) in free_indices.iter().zip(initial_values.into_iter()) {
-        sudoku.set_raw(*index, sudoku::SudokuCell::Digit(value));
-    }
 
     // Keep a list of how many violations each cell is involved in.
     // This will be used to recalculate the score of a new board
@@ -211,31 +207,32 @@ pub fn anneal(
     Ok(())
 }
 
-fn init_hint(
-    sudoku: &mut Sudoku,
-    hint: Sudoku,
-    side: usize,
-) -> Result<(Vec<usize>, Vec<usize>), SolveError> {
-    Ok((0..(side * side))
-        .map(|raw| -> Result<(usize, usize), SolveError> {
-            let hint_here = hint.get_raw(raw).value().ok_or(SolveError::EmptyHint)?;
+fn init_hint(sudoku: &mut Sudoku, hint: Sudoku, side: usize) -> Result<Vec<usize>, SolveError> {
+    (0..(side * side))
+        .filter_map(|raw| {
+            let hint_here = hint.get_raw(raw).value().ok_or(SolveError::EmptyHint);
+            let hint_here = match hint_here {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
             if let Some(value) = sudoku.get_raw(raw).value() {
                 if hint_here != value {
-                    return Err(SolveError::IncompatibleHint);
+                    return Some(Err(SolveError::IncompatibleHint));
                 }
+                None
+            } else {
+                sudoku.set_raw(raw, SudokuCell::Digit(hint_here));
+                Some(Ok(raw))
             }
-            Ok((raw, hint_here))
         })
-        .collect::<Result<Vec<(usize, usize)>, SolveError>>()?
-        .into_iter()
-        .unzip())
+        .collect::<Result<Vec<usize>, SolveError>>()
 }
 
 fn init_no_hint(
     sudoku: &mut Sudoku,
     side: usize,
     digit_range: usize,
-) -> Result<(Vec<usize>, Vec<usize>), SolveError> {
+) -> Result<Vec<usize>, SolveError> {
     let mut digits = vec![0_usize; digit_range];
     let mut free_indices = vec![];
     for raw in 0..(side * side) {
@@ -260,12 +257,11 @@ fn init_no_hint(
                 Some(std::iter::repeat(d + 1).take(digit_range - occurs))
             }
         })
-        .flatten()
-        .collect::<Vec<usize>>();
+        .flatten();
 
-    for (raw, value) in free_indices.iter().zip(initial_values.iter()) {
-        sudoku.set_raw(*raw, SudokuCell::Digit(*value));
+    for (raw, value) in free_indices.iter().zip(initial_values) {
+        sudoku.set_raw(*raw, SudokuCell::Digit(value));
     }
 
-    Ok((free_indices, initial_values))
+    Ok(free_indices)
 }
