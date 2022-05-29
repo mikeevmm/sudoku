@@ -27,7 +27,7 @@ pub fn anneal(
 
     let (free_indices, initial_values) = match init {
         Some(init) => init_hint(sudoku, init, side)?,
-        None => init_no_hint(sudoku, side, box_side)?,
+        None => init_no_hint(sudoku, side, side)?,
     };
 
     for (index, value) in free_indices.iter().zip(initial_values.into_iter()) {
