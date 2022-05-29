@@ -3,7 +3,6 @@
 // so as to not have to re-implement char iteration over a generic reader.
 // Adapted.
 
-use std::error::Error;
 use std::io::{self, ErrorKind, Read};
 use std::result;
 use std::str;

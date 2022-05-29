@@ -1,8 +1,3 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    hint,
-};
-
 use crate::schedule::Schedule;
 use itertools::Itertools;
 use sudoku::{Sudoku, SudokuCell, SudokuCellValue};
@@ -29,11 +24,10 @@ pub fn anneal(
     // satisfiable digit.
     let side = sudoku.side();
     let box_side = sudoku.box_side();
-    let digit_range = box_side * box_side;
 
     let (free_indices, initial_values) = match init {
         Some(init) => init_hint(sudoku, init, side)?,
-        None => init_no_hint(sudoku, side, box_side, digit_range)?,
+        None => init_no_hint(sudoku, side, box_side)?,
     };
 
     for (index, value) in free_indices.iter().zip(initial_values.into_iter()) {
@@ -240,7 +234,6 @@ fn init_hint(
 fn init_no_hint(
     sudoku: &mut Sudoku,
     side: usize,
-    box_side: usize,
     digit_range: usize,
 ) -> Result<(Vec<usize>, Vec<usize>), SolveError> {
     let mut digits = vec![0_usize; digit_range];

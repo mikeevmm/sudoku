@@ -30,7 +30,7 @@ pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
         )
         .to_string());
     }
-    let digit_range = box_size * box_size;
+    let digit_range = side;
 
     // We've read the first line.
     // We can instantiate a board of the correct size, and start filling it in
@@ -145,7 +145,6 @@ where
 
             return Err(parser.err("Expected a space after a number.".to_string()));
         }
-
     }
 
     Ok(())

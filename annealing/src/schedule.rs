@@ -3,7 +3,6 @@ use sudoku::parsing::AllowEof;
 use crate::parsing::chars_reader::CharReader;
 use crate::parsing::{self, DefaultParseError};
 use std::io::Read;
-use std::iter;
 
 pub struct Schedule {
     pub temperatures: Vec<f64>,

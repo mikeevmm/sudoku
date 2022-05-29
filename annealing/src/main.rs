@@ -1,6 +1,6 @@
 use schedule::Schedule;
 use solver::SolveError;
-use std::{convert::Infallible, path::PathBuf};
+use std::path::PathBuf;
 use sudoku::*;
 
 mod schedule;
