@@ -24,10 +24,11 @@ pub fn parse<R: Read>(reader: R) -> Result<Sudoku, String> {
 
     let box_size = (side as f32).sqrt() as usize;
     if box_size * box_size != side {
-        return Err(concat!(
+        return Err(format!(concat!(
             "Your board side length needs to be a perfect square, ",
-            "or you can't define boxes well."
-        )
+            "or you can't define boxes well. ",
+            "I counted {} columns."
+        ), side)
         .to_string());
     }
     let digit_range = side;
@@ -131,20 +132,24 @@ where
         index += 1;
 
         // Eat trailing whitespace
-        // We need at least one space
-        if !parser.eat_space().with_default_err_msgs(&parser)? {
-            // If we match an EOF or new line, we've finished parsing the line
-            if parser.try_match_eof().with_default_err_msgs(&parser)? {
-                break; // Matched EOF
-            }
+        let space_after = parser.eat_space().with_default_err_msgs(&parser)?;
 
-            parser.try_match('\r').with_default_err_msgs(&parser)?;
-            if parser.try_match('\n').with_default_err_msgs(&parser)? {
-                break; // Matched new line
-            }
-
-            return Err(parser.err("Expected a space after a number.".to_string()));
+        // If we match an EOF or new line, we've finished parsing the line
+        if parser.try_match_eof().with_default_err_msgs(&parser)? {
+            break; // Matched EOF
         }
+
+        // New line
+        parser.try_match('\r').with_default_err_msgs(&parser)?;
+        if parser.try_match('\n').with_default_err_msgs(&parser)? {
+            break; // Matched new line
+        }
+
+        // If nothing else, we need at least a space.
+        if !space_after {
+            return Err(parser.err("Expected a space or a line break after a number.".to_string()));
+        }
+
     }
 
     Ok(())
