@@ -89,9 +89,12 @@ fn main() {
             }
             (r / box_side) == (rr / box_side) && (c / box_side) == (cc / box_side)
         });
+
+    let mut filled_count = 0;
     for ((r, c), (rr, cc)) in pairs_to_check {
         if let Some(this) = input.get(r, c).value() {
             if let Some(that) = input.get(rr, cc).value() {
+                filled_count += 1;
                 if this == that {
                     invalid.insert(r * side + c);
                     invalid.insert(rr * side + cc);
@@ -100,12 +103,18 @@ fn main() {
         }
     }
 
+    let total = side * side * (side - 1) + side * side * ((side - 1) / 2 - box_side + 1);
+    let filled = filled_count == total;
+    drop(filled_count);
+
     // Print the sudoku with colors
     for c in 0..side {
         for r in 0..side {
             if let Some(value) = input.get(r, c).value() {
                 if invalid.contains(&(r * side + c)) {
                     print!("{} ", value.to_string().red())
+                } else if filled && invalid.len() == 0 {
+                    print!("{} ", value.to_string().green());
                 } else {
                     print!("{} ", value);
                 }
