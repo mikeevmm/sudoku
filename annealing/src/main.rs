@@ -11,7 +11,7 @@ const HEADER: &'static str = r#"annealing solver for sudoku
 
 const USAGE: &'static str = r#"
 Usage:
-    annealing <schedule file> <input file> [<init file>]
+    annealing <input file> <schedule file> [<init file>]
     annealing --help
 
 Options:
@@ -31,14 +31,12 @@ cause the program to exit with code 1.
 The success messages can be
 
     SUCCESS     The .sudoku below is a solution to the given input.
-    GLASS       The state was cooled into an invalid state.
+    GLASS       The state was cooled into an invalid state, given below.
 
 The hint file, if provided, tells the annealer in what state to begin the
 annealing. It follows that the hint file must agree with the input file on the
 numerical clues, and must be feasible. Furthermore, hint inputs cannot contain
 empty spaces.
-
-# The .schedule format
 
 The .schedule format describes a cooling schedule for the simulated annealing.
 It consists of plain, UTF-8 encoded text, with an arbitrary number of pairs of
@@ -53,7 +51,6 @@ Floating point numbers take the format (in loose BNF notation):
     integer ~= (+|-)?\d+
     decimal ~= \.\d+
 
-# The .sudoku format
 "#,
     include_str!("../../FORMATTING.txt")
 );
@@ -74,10 +71,10 @@ fn main() {
                 std::process::exit(0);
             }
             "-" => {
-                if schedule.is_none() {
-                    schedule = Some(schedule::parse(std::io::stdin()));
-                } else if input.is_none() {
+                if input.is_none() {
                     input = Some(parsing::sudoku::parse(std::io::stdin()));
+                } else if schedule.is_none() {
+                    schedule = Some(schedule::parse(std::io::stdin()));
                 } else if init_hint.is_none() {
                     init_hint = Some(parsing::sudoku::parse(std::io::stdin()))
                 } else {
@@ -104,10 +101,10 @@ fn main() {
                 }
                 let reader = reader.unwrap();
 
-                if schedule.is_none() {
-                    schedule = Some(schedule::parse(reader));
-                } else if input.is_none() {
+                if input.is_none() {
                     input = Some(parsing::sudoku::parse(reader));
+                } else if schedule.is_none() {
+                    schedule = Some(schedule::parse(reader));
                 } else if init_hint.is_none() {
                     init_hint = Some(parsing::sudoku::parse(reader))
                 } else {
