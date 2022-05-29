@@ -10,8 +10,8 @@ if __name__ == '__main__':
     remelts = (np.sin(1./(1. - time**(.1) + .04) * 3) + 1.) / 2.
     #plt.plot(time, remelts)
 
-    iterations = np.exp((3 * time) * np.log(1000))
-    #plt.plot(time, iterations)
+    iterations = np.exp(time**2 * np.log(100)) * 100
+    plt.plot(time, iterations)
 
     temperature = np.exp(-time) * (1. - time**2) * remelts * 100
     plt.plot(time, temperature)
