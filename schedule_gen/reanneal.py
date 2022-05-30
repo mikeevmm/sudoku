@@ -8,13 +8,10 @@ import os
 if __name__ == '__main__':
     time = np.linspace(0., 1., 300)
 
-    remelts = (np.sin(1./(1. - time**(.1) + .04) * 3) + 1.) / 2.
-    #plt.plot(time, remelts)
-
-    iterations = (1. - (1. - time)**2) * 1000
+    iterations = (.2 + 0.8 * (1. - (4/3)**2 * (1. - time**2) * (1. - (1. - time)**2))) * 1000
     plt.plot(time, iterations)
 
-    temperature = (1. - time)**3 * 10
+    temperature = 2**6 * time**3 * (1. - time)**3 * 0.3
     plt.plot(time, temperature)
     plt.show()
 
@@ -22,5 +19,5 @@ if __name__ == '__main__':
     np.savetxt(
         f'{here}/../reanneal.schedule',
         np.array([temperature, iterations]).T,
-        ['%f', '%d'],
+        ['%12g', '%d'],
         header='Temperature & iterations')

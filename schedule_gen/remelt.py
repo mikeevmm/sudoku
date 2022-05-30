@@ -11,9 +11,9 @@ if __name__ == '__main__':
     #plt.plot(time, remelts)
 
     iterations = np.exp(time**2 * np.log(100)) * 100
-    plt.plot(time, iterations)
+    #plt.plot(time, iterations)
 
-    temperature = np.exp(-time) * (1. - time**2) * remelts * 100
+    temperature = np.exp(-np.tan(time * 0.9 * np.pi / 2.)) * remelts
     plt.plot(time, temperature)
     plt.show()
 
@@ -21,5 +21,5 @@ if __name__ == '__main__':
     np.savetxt(
         f'{here}/../remelt.schedule',
         np.array([temperature, iterations]).T,
-        ['%f', '%d'],
+        ['%12g', '%d'],
         header='Temperature & iterations')

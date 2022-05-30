@@ -162,6 +162,14 @@ where
         format!("{message}\nAt {}:{}.", self.line, self.column)
     }
 
+    pub fn line(&self) -> usize {
+        self.line
+    }
+
+    pub fn column(&self) -> usize {
+        self.column
+    }
+
     pub fn default_err_msg(&self, err: ParseError) -> String {
         match err {
             ParseError::NotUtf8 => self.err("Found non-UTF-8 character.".to_string()),

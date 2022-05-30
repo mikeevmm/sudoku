@@ -15,7 +15,7 @@ if [ $STATUS == "GLASS" ]; then
     STATUS=("$(echo "$SECOND" | head -n1)")
     HINT=("$(echo "$SECOND" | tail +2)")
 
-    echo "$SECOND"
+    echo "$SECOND" | tail +2 | target/release/skgrep
 else
-    echo "$FIRST"
+    echo "$FIRST" | tail +2 | target/release/skgrep
 fi

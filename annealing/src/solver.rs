@@ -24,6 +24,7 @@ pub fn anneal(
     // satisfiable digit.
     let side = sudoku.side();
     let box_side = sudoku.box_side();
+    let pair_count = side * side * (side - 1) + side * side * ((side - 1) / 2 - box_side + 1);
 
     let free_indices = match init {
         Some(init) => init_hint(sudoku, init, side)?,
@@ -160,12 +161,18 @@ pub fn anneal(
         let new_score: usize = violation_count.iter().sum();
 
         // Test if we should approve this score
+        // To make the temperature more meaning independently of the board size,
+        // we add  a "kB" factor matching the total number of pairs that can
+        // influence each other. Naturally, this is higher than the maximum
+        // possible number of violations--- I'm not sure it's possible to have
+        // a board where every pair is in violation--- but this way the reduced
+        // temperature is always <= 1.
         let boltzmann = || {
             alea::f64()
                 <= (f64::from(
                     i32::try_from(current_score as isize - new_score as isize)
                         .expect("Over or underflow"),
-                ) / temperature)
+                ) / (temperature * pair_count as f64))
                     .exp()
                     .min(1.)
         };

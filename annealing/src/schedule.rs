@@ -47,7 +47,18 @@ pub fn parse<R: Read>(from: R) -> Result<Schedule, String> {
         }
 
         // Match a temperature and a number of iterations.
-        temperatures.push(parser.expect_float().with_default_err_msgs(&parser)?);
+        let temperature = parser.expect_float().with_default_err_msgs(&parser)?;
+        if temperature < 0. || temperature > 1. {
+            return Err(format!(
+                concat!(
+                    "Temperatures must be between 0. and 1.\n",
+                    "Line {} has {}."
+                ),
+                parser.line(),
+                temperature
+            ));
+        }
+        temperatures.push(temperature);
         parser.eat_space().with_default_err_msgs(&parser)?;
         rounds.push(parser.expect_integer().with_default_err_msgs(&parser)?);
 
