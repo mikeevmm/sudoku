@@ -1,0 +1,13 @@
+[package]
+name = "projection"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "projection"
+path = "src/main.rs"
+
+[dependencies]
+itertools = "0.10.3"
+ndarray = "0.15.4"
+sudoku = { path = "../sudoku" }

@@ -73,7 +73,8 @@ fn main() {
 
     match result {
         Ok(()) => {
-            println!("Success. Solution:\n{}", input);
+            eprintln!("Success.");
+            println!("{}", input);
             std::process::exit(0);
         }
         Err(SolveError::Infeasible) => {

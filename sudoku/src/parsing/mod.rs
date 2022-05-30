@@ -1,5 +1,5 @@
 use self::chars_reader::{CharReader, CharReaderError};
-use std::{convert::Infallible, iter::Peekable, marker::PhantomData};
+use std::{convert::Infallible, iter::Peekable, marker::PhantomData, path::PathBuf};
 
 pub mod chars_reader;
 pub mod sudoku;
@@ -266,6 +266,46 @@ where
             return Err(ParseError::UnexpectedEof);
         }
         Ok(float.unwrap())
+    }
+
+    pub fn expect_path(&mut self) -> Result<String, ParseError> {
+        let delimiter = self.try_match_predicate(|c| c == '\'' || c == '"')?;
+
+        let collected = match delimiter {
+            None => self.collect_predicate(|c| !c.is_whitespace()),
+            Some(delimiter) => {
+                let mut path = String::new();
+                while let Some(c) = self.next().eof_ok()? {
+                    if c == delimiter {
+                        break;
+                    }
+
+                    if c == '\\' {
+                        // Consume next character immediately
+                        if let Some(next) = self.next().eof_ok()? {
+                            path.push(next);
+                            continue;
+                        }
+                    }
+
+                    path.push(c);
+                }
+
+                Ok(path)
+            }
+        };
+
+        if let Ok(collected) = &collected {
+            if collected.len() == 0 {
+                if let Some(c) = ParserCharIter::peek(&mut self.inner)? {
+                    return Err(ParseError::UnexpectedChar(c));
+                } else {
+                    return Err(ParseError::UnexpectedEof);
+                }
+            }
+        }
+
+        collected
     }
 
     pub fn try_match(&mut self, to_match: char) -> Result<bool, ParseError> {
