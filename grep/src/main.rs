@@ -8,7 +8,7 @@ const HEADER: &'static str = r#"visual grepper for .sudoku
 
 const USAGE: &'static str = r#"
 Usage:
-    skgrep <.sudoku file>
+    skgrep [<.sudoku file>]
     skgrep --help
 
 Options:
@@ -18,7 +18,8 @@ Options:
 const LONG_HELP: &'static str = concat!(
     r#"
 An input file of "-" denotes the input data should be read from the standard
-input. 
+input. No input file is taken to mean the data should be read from the standard
+input.
 
 "#,
     include_str!("../../FORMATTING.txt")
@@ -29,8 +30,7 @@ fn main() {
 
     let input = match args.next() {
         None => {
-            eprintln!("{}", USAGE);
-            std::process::exit(1);
+            parsing::sudoku::parse(std::io::stdin())
         }
         Some(string) => match string.as_str() {
             "--help" => {
