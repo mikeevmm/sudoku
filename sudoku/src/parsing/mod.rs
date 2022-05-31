@@ -1,5 +1,5 @@
 use self::chars_reader::{CharReader, CharReaderError};
-use std::{convert::Infallible, iter::Peekable, marker::PhantomData, path::PathBuf};
+use std::{convert::Infallible, iter::Peekable, marker::PhantomData, num::ParseIntError};
 
 pub mod chars_reader;
 pub mod sudoku;
@@ -233,11 +233,23 @@ where
     }
 
     pub fn expect_integer(&mut self) -> Result<usize, ParseError> {
-        match self
-            .collect_predicate(|c| c.is_ascii_digit())?
-            .parse::<usize>()
-        {
-            Err(_) => Err(ParseError::UnexpectedEof),
+        let mut str_repr = String::new();
+        while let Some(c) = self.try_match_predicate(|c| c.is_ascii_digit() || c == '_')? {
+            match c {
+                '_' => continue,
+                c => str_repr.push(c),
+            }
+        }
+        match str_repr.parse::<usize>() {
+            Err(e) => Err(match e.kind() {
+                std::num::IntErrorKind::Empty => ParseError::UnexpectedEof,
+                std::num::IntErrorKind::InvalidDigit => {
+                    ParseError::UnexpectedChar(str_repr.chars().last().unwrap())
+                }
+                std::num::IntErrorKind::PosOverflow => panic!("Integer overflow"),
+                std::num::IntErrorKind::NegOverflow => panic!("Integer overflow"),
+                _ => unreachable!(),
+            }),
             Ok(value) => Ok(value),
         }
     }
@@ -251,15 +263,14 @@ where
         if self.try_match('.')? {
             float_str.push('.');
             float_str.extend(self.collect_predicate(|c| c.is_ascii_digit())?.chars());
-
-            if self.try_match('e')? || self.try_match('E')? {
-                float_str.push('e');
-                if let Some(c) = self.try_match_predicate(|c| c == '+' || c == '-')? {
-                    float_str.push(c);
-                }
-                let exponent = self.expect_integer()?;
-                float_str.push_str(&exponent.to_string());
+        }
+        if self.try_match('e')? || self.try_match('E')? {
+            float_str.push('e');
+            if let Some(c) = self.try_match_predicate(|c| c == '+' || c == '-')? {
+                float_str.push(c);
             }
+            let exponent = self.expect_integer()?;
+            float_str.push_str(&exponent.to_string());
         }
         let float = float_str.parse::<f64>();
         if float.is_err() {
@@ -369,6 +380,24 @@ where
             ate_any = true;
         }
         Ok(ate_any)
+    }
+
+    pub fn expect_space(&mut self) -> Result<(), ParseError> {
+        let mut ate_any = false;
+        while self
+            .try_match_predicate(|c| c.is_whitespace() && c != '\n' && c != '\r')?
+            .is_some()
+        {
+            ate_any = true;
+        }
+        if !ate_any {
+            match self.next() {
+                Ok(c) => Err(ParseError::UnexpectedChar(c)),
+                Err(e) => Err(e),
+            }
+        } else {
+            Ok(())
+        }
     }
 
     pub fn collect_predicate<K>(&mut self, predicate: K) -> Result<String, ParseError>
