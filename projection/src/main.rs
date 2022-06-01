@@ -97,18 +97,19 @@ fn main() {
         .or_match_help(&mut parse)
         .or_usage_msg("Expected a number of iterations.");
 
-    if !parse
-        .eat_space()
-        .expect("Something unexpected happened while reading from stdin.")
-    {
-        eprintln!("{}", USAGE);
-        std::process::exit(1);
-    }
+    parse.expect_space().or_usage();
 
-    let input = if parse.try_match('-').or_usage() {
+    let input = if parse
+        .try_match('-')
+        .or_match_help(&mut parse)
+        .or_usage_msg("Expected sudoku input.")
+    {
         parsing::sudoku::parse(std::io::stdin())
     } else {
-        let path = parse.expect_path().or_usage();
+        let path = parse
+            .expect_path()
+            .or_match_help(&mut parse)
+            .or_usage_msg("Expected sudoku input.");
         let path = PathBuf::from(path);
         let path_as_str = path.clone().to_string_lossy().to_string();
         if !path.exists() {
@@ -147,10 +148,9 @@ fn main() {
     let result = solver::solve(&mut input, max_iterations);
 
     match result {
-        Ok(()) => {
-            eprintln!("Success.");
-            println!("{}", input);
-        }
-        Err(e) => todo!(),
+        solver::SolveResult::IterationsExhausted => println!("EXHAUSTED"),
+        solver::SolveResult::EarlySuccess => println!("ALL SATISFIED"),
     }
+
+    println!("{}", input);
 }
