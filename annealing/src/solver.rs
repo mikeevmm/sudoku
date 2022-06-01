@@ -24,7 +24,6 @@ pub fn anneal(
     // satisfiable digit.
     let side = sudoku.side();
     let box_side = sudoku.box_side();
-    let pair_count = side * side * (side - 1) + side * side * ((side - 1) / 2 - box_side + 1);
 
     let free_indices = match init {
         Some(init) => init_hint(sudoku, init, side)?,

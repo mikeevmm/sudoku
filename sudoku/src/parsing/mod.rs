@@ -1,5 +1,5 @@
 use self::chars_reader::{CharReader, CharReaderError};
-use std::{convert::Infallible, iter::Peekable, marker::PhantomData, num::ParseIntError};
+use std::{convert::Infallible, iter::Peekable, marker::PhantomData};
 
 pub mod chars_reader;
 pub mod sudoku;
