@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use ndarray::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use sudoku::SudokuCellValue;
 
 pub enum SolveResult {
@@ -8,10 +8,7 @@ pub enum SolveResult {
     EarlySuccess,
 }
 
-pub fn solve(
-    sudoku: &mut sudoku::Sudoku,
-    max_iterations: usize,
-) -> SolveResult {
+pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult {
     // Here, we will not use the internal representation of the Sudoku, and
     // will instead work with the probability 3-tensor described in [0].
     //
@@ -21,7 +18,6 @@ pub fn solve(
     let box_side = sudoku.box_side();
 
     let mut tensor = ndarray::Array::<f64, _>::zeros((side, side, side));
-    let mut forbidden = HashSet::<(usize, usize, usize)>::new();
 
     // Fix the probabilities of known digits, and forbid incompatible ones
     for r in 0..side {
@@ -30,117 +26,133 @@ pub fn solve(
                 for d in 0..side {
                     tensor[[r, c, d]] = if d == digit - 1 { 1.0 } else { 0.0 };
                 }
-
-                for rr in 0..side {
-                    if rr == r {
-                        continue;
-                    }
-                    forbidden.insert((rr, c, digit - 1));
-                }
-
-                for cc in 0..side {
-                    if cc == c {
-                        continue;
-                    }
-                    forbidden.insert((r, cc, digit - 1));
-                }
-
-                for v in 0..box_side {
-                    for h in 0..box_side {
-                        let rr = r / box_side * box_side + v;
-                        let cc = c / box_side * box_side + h;
-                        if rr == r && cc == c {
-                            continue;
-                        }
-                        forbidden.insert((rr, cc, digit - 1));
-                    }
-                }
             }
         }
     }
 
-    let row_except_filled = |tensor: &mut ArrayBase<ndarray::OwnedRepr<f64>, Dim<[usize; 3]>>,
-                             row: usize,
-                             d: usize|
-     -> Vec<&mut f64> {
-        let base_ptr = tensor.as_ptr();
-        let strides = tensor.strides();
-        (0..side)
-            .filter(|c| !forbidden.contains(&(row, *c, d)))
-            .map(|c| unsafe {
-                &mut *(base_ptr.offset(
-                    row as isize * strides[0] + c as isize * strides[1] + d as isize * strides[2],
-                ) as *mut f64)
-            })
-            .collect_vec()
-    };
+    // Precompute the valid elements of the rows, columns, subgrids and cells.
+    let mut row_digit_simplexes =
+        HashMap::<(usize, usize), Vec<&mut f64>>::with_capacity(side * side);
+    let mut column_digit_simplexes =
+        HashMap::<(usize, usize), Vec<&mut f64>>::with_capacity(side * side);
+    let mut subgrid_digit_simplexes =
+        HashMap::<(usize, usize, usize), Vec<&mut f64>>::with_capacity(side * side);
+    let mut cell_simplexes = HashMap::<(usize, usize), Vec<&mut f64>>::with_capacity(side * side);
 
-    let column_except_filled =
-        |tensor: &mut ArrayBase<ndarray::OwnedRepr<f64>, Dim<[usize; 3]>>,
-         column: usize,
-         d: usize|
-         -> Vec<&mut f64> {
-            let base_ptr = tensor.as_ptr();
-            let strides = tensor.strides();
-            (0..side)
-                .filter(|r| !forbidden.contains(&(*r, column, d)))
-                .map(|r| unsafe {
-                    &mut *(base_ptr.offset(
-                        r as isize * strides[0]
-                            + column as isize * strides[1]
-                            + d as isize * strides[2],
-                    ) as *mut f64)
-                })
-                .collect_vec()
+    {
+        let digit_can_go_here = |row, column, d| {
+            for rr in 0..side {
+                if rr == column {
+                    continue;
+                }
+                if let Some(digit) = sudoku.get(rr, column).value() {
+                    if digit - 1 == d {
+                        return false;
+                    }
+                }
+            }
+            for cc in 0..side {
+                if cc == column {
+                    continue;
+                }
+                if let Some(digit) = sudoku.get(row, cc).value() {
+                    if digit - 1 == d {
+                        return false;
+                    }
+                }
+            }
+            for v in 0..box_side {
+                for h in 0..box_side {
+                    let rr = row / box_side * box_side + v;
+                    let cc = column / box_side * box_side + h;
+                    if let Some(digit) = sudoku.get(rr, cc).value() {
+                        if digit - 1 == d {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
         };
 
-    let subgrid_except_filled = |tensor: &mut ArrayBase<
-        ndarray::OwnedRepr<f64>,
-        Dim<[usize; 3]>,
-    >,
-                                 subgrid_base_row: usize,
-                                 subgrid_base_col: usize,
-                                 d: usize|
-     -> Vec<&mut f64> {
         let base_ptr = tensor.as_ptr();
         let strides = tensor.strides();
-        (0..box_side)
-            .cartesian_product(0..box_side)
-            .filter(|(v, h)| {
-                let rr = subgrid_base_row + v;
-                let cc = subgrid_base_col + h;
-                !forbidden.contains(&(rr, cc, d))
-            })
-            .map(|(v, h)| {
-                let rr = subgrid_base_row + v;
-                let cc = subgrid_base_col + h;
-                (rr, cc)
-            })
-            .map(|(rr, cc)| unsafe {
-                &mut *(base_ptr.offset(
-                    rr as isize * strides[0] + cc as isize * strides[1] + d as isize * strides[2],
-                ) as *mut f64)
-            })
-            .collect_vec()
-    };
 
-    let allowed_digits = |tensor: &mut ArrayBase<ndarray::OwnedRepr<f64>, Dim<[usize; 3]>>,
-                          row: usize,
-                          column: usize|
-     -> Vec<&mut f64> {
-        let base_ptr = tensor.as_ptr();
-        let strides = tensor.strides();
-        (0..side)
-            .filter(|d| !forbidden.contains(&(row, column, *d)))
-            .map(|d| unsafe {
-                &mut *(base_ptr.offset(
-                    row as isize * strides[0]
-                        + column as isize * strides[1]
-                        + d as isize * strides[2],
-                ) as *mut f64)
-            })
-            .collect::<Vec<&mut f64>>()
-    };
+        for row in 0..side {
+            for d in 0..side {
+                let simplex = (0..side)
+                    .filter(|c| digit_can_go_here(row, *c, d))
+                    .map(|c| unsafe {
+                        &mut *(base_ptr.offset(
+                            row as isize * strides[0]
+                                + c as isize * strides[1]
+                                + d as isize * strides[2],
+                        ) as *mut f64)
+                    })
+                    .collect_vec();
+                row_digit_simplexes.insert((row, d), simplex);
+            }
+        }
+
+        for column in 0..side {
+            for d in 0..side {
+                let simplex = (0..side)
+                    .filter(|r| digit_can_go_here(*r, column, d))
+                    .map(|r| unsafe {
+                        &mut *(base_ptr.offset(
+                            r as isize * strides[0]
+                                + column as isize * strides[1]
+                                + d as isize * strides[2],
+                        ) as *mut f64)
+                    })
+                    .collect_vec();
+                column_digit_simplexes.insert((column, d), simplex);
+            }
+        }
+
+        for a in 0..box_side {
+            for b in 0..box_side {
+                for d in 0..side {
+                    let simplex = (0..box_side)
+                        .cartesian_product(0..box_side)
+                        .filter(|(v, h)| {
+                            let rr = a * box_side + v;
+                            let cc = b * box_side + h;
+                            digit_can_go_here(rr, cc, d)
+                        })
+                        .map(|(v, h)| {
+                            let rr = a * box_side + v;
+                            let cc = b * box_side + h;
+                            unsafe {
+                                &mut *(base_ptr.offset(
+                                    rr as isize * strides[0]
+                                        + cc as isize * strides[1]
+                                        + d as isize * strides[2],
+                                ) as *mut f64)
+                            }
+                        })
+                        .collect_vec();
+                    subgrid_digit_simplexes.insert((a * box_side, b * box_side, d), simplex);
+                }
+            }
+        }
+
+        for row in 0..side {
+            for column in 0..side {
+                let simplex = (0..side)
+                    .filter(|d| digit_can_go_here(row, column, *d))
+                    .map(|d| unsafe {
+                        &mut *(base_ptr.offset(
+                            row as isize * strides[0]
+                                + column as isize * strides[1]
+                                + d as isize * strides[2],
+                        ) as *mut f64)
+                    })
+                    .collect_vec();
+                cell_simplexes.insert((row, column), simplex);
+            }
+        }
+    }
 
     let set_according_to_tensor =
         |sudoku: &mut sudoku::Sudoku,
@@ -158,7 +170,7 @@ pub fn solve(
             }
         };
 
-    let simplex_projection = |mut y: Vec<&mut f64>| {
+    let simplex_projection = |y: &mut [&mut f64]| {
         if y.len() == 0 {
             return;
         }
@@ -274,17 +286,17 @@ pub fn solve(
     for _iteration in 0..max_iterations {
         for constraint in constraints.iter() {
             match constraint {
-                Constraint::RowSimplex(row, digit) => {
-                    simplex_projection(row_except_filled(&mut tensor, *row, *digit))
+                Constraint::RowSimplex(row, d) => {
+                    simplex_projection(row_digit_simplexes.get_mut(&(*row, *d)).unwrap())
                 }
-                Constraint::ColSimplex(col, digit) => {
-                    simplex_projection(column_except_filled(&mut tensor, *col, *digit))
+                Constraint::ColSimplex(col, d) => {
+                    simplex_projection(column_digit_simplexes.get_mut(&(*col, *d)).unwrap())
                 }
                 Constraint::DigitSimplex(row, col) => {
-                    simplex_projection(allowed_digits(&mut tensor, *row, *col))
+                    simplex_projection(cell_simplexes.get_mut(&(*row, *col)).unwrap())
                 }
                 Constraint::SubgridSimplex(a, b, d) => {
-                    simplex_projection(subgrid_except_filled(&mut tensor, *a, *b, *d))
+                    simplex_projection(subgrid_digit_simplexes.get_mut(&(*a, *b, *d)).unwrap())
                 }
             }
         }
