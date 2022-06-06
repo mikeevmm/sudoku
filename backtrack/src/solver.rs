@@ -1,6 +1,7 @@
-use sudoku::{Sudoku, SudokuCell, SudokuCellValue};
 use itertools::Itertools;
+use rand::{prelude::SliceRandom, thread_rng};
 use std::collections::BTreeSet;
+use sudoku::{Sudoku, SudokuCell, SudokuCellValue};
 
 pub enum SolveError {
     Infeasible,
@@ -58,6 +59,8 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
     // to what
     // Since we're iterating over the elements of `incompatible`, let's also turn them
     // into the elements that ARE compatible, into a vec sorted by ascending order.
+    // NOTE also: we shuffle to compatible digits around, to try to defeat adversarial
+    // pathological cases.
     let (indices, compatible): (Vec<usize>, Vec<Vec<usize>>) = incompatible
         .into_iter()
         .map(|set| {
@@ -65,11 +68,15 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
                 .filter(|d| !set.contains(d))
                 .collect::<Vec<usize>>()
         })
-        .enumerate()
+        .enumerate() // Important to enumerate before filtering out!
         .filter(|(_, x)| x.len() > 0)
+        .map(|(i, mut x)| {
+            x.shuffle(&mut thread_rng());
+            (i, x)
+        })
         .sorted_unstable_by_key(|(_i, x)| x.len() as isize)
         .unzip();
-    
+
     // Start doing the backtracking
     let mut depth = 0; // The index of the string character being tested.
     let mut pointer = vec![0_usize; indices.len()]; // The character being tested, for each depth.
@@ -155,7 +162,8 @@ fn violates_constraints(sudoku: &Sudoku, last_changed: usize, new_value: usize) 
             let rr = box_side * (r / box_side) + v;
             let cc = box_side * (c / box_side) + h;
 
-            if rr == r || cc == c { // we've already checked same row & same col
+            if rr == r || cc == c {
+                // we've already checked same row & same col
                 continue;
             }
 
