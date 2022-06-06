@@ -67,9 +67,9 @@ pub fn backtrack(sudoku: &mut Sudoku) -> Result<(), SolveError> {
         })
         .enumerate()
         .filter(|(_, x)| x.len() > 0)
-        .sorted_unstable_by_key(|(_i, x)| -(x.len() as isize))
+        .sorted_unstable_by_key(|(_i, x)| x.len() as isize)
         .unzip();
-
+    
     // Start doing the backtracking
     let mut depth = 0; // The index of the string character being tested.
     let mut pointer = vec![0_usize; indices.len()]; // The character being tested, for each depth.

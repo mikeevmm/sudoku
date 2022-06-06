@@ -82,7 +82,7 @@ impl TryFrom<String> for SudokuCell {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sudoku {
     side: usize,
     box_side: usize,
