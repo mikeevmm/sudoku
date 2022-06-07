@@ -146,7 +146,7 @@ fn run_benchmark<O: Write>(input: sudoku::Sudoku, mut out: BufWriter<O>) {
 
     let (time_tx, time_rx) = mpsc::channel::<Option<u128>>();
     let thread_iterations = 1;
-    let thread_count = thread::available_parallelism().unwrap().get() - 1;
+    let thread_count = thread::available_parallelism().unwrap().get() / 2;
 
     eprintln!(
         "Benchmarking {} iterations.",
@@ -175,7 +175,6 @@ fn run_benchmark<O: Write>(input: sudoku::Sudoku, mut out: BufWriter<O>) {
     while let Ok(time) = time_rx.recv() {
         match time {
             Some(time) => {
-                eprintln!("{}", time);
                 out.write(format!("{}\n", time).as_bytes()).unwrap();
             }
             None => {
