@@ -18,6 +18,7 @@ import shutil
 import time
 import copy
 import random
+import concurrent.futures
 import numpy as np
 from glob import glob
 from tempfile import NamedTemporaryFile
@@ -201,81 +202,83 @@ def benchmark_top1465_geometric():
 
     print('Finished parsing puzzles.')
 
-    if os.path.exists('annealing.remelt.top1465.log'):
-        shutil.copy('annealing.remelt.top1465.log',
-                    f'annealing.remelt.top1465.log.{random.randint(0, 1000)}.bak')
-        os.remove('annealing.remelt.top1465.log')
+    if os.path.exists('annealing.top1465.log'):
+        shutil.copy('annealing.top1465.log',
+                    f'annealing.top1465.log.{random.randint(0, 1000)}.bak')
+        os.remove('annealing.top1465.log')
 
-    with open('annealing.remelt.top1465.log', 'w') as outfile:
+    with open('annealing.top1465.log', 'w') as outfile:
         outfile.write(
             '# <Puzzle index>\t<Unsolved percentage>\t<Average solve time (ms)>\n')
         for i, puzzle in enumerate(puzzles):
-            times = np.array([-1., -1., -1., -1.])
-            for iteration in range(4):
-                with NamedTemporaryFile(delete=True) as puzzlefile, \
-                        NamedTemporaryFile(delete=True) as hintfile:
-                    puzzlefile.write(puzzle.encode('utf-8'))
-                    puzzlefile.flush()
-
-                    # Give ourselves 1m30s.
-                    # Use a geometric schedule with 100_000 iterations total each round
-                    # Start with a starting temperature of 1.,
-                    # then every new round halve scale the curve by 1/2.
-                    start_time = time.perf_counter()
-                    start_temp = 1.
-                    args = []
-                    while True:
-                        if time.perf_counter() - start_time > 90:
-                            break
-
-                        if start_temp < 0.01:
-                            start_temp = 1.
-
-                        schedule = ''
-                        temperature = copy.copy(start_temp)
-                        iterations = 1
-                        total_iters = 0
-                        while total_iters < 100_000:
-                            schedule += f'{temperature} {int(iterations)}\n'
-                            temperature *= 0.99
-                            iterations *= 1.01
-                            total_iters += iterations
-
-                        try:
-                            result = run(
-                                ['../target/release/annealing',
-                                    puzzlefile.name, '-', *args],
-                                input=schedule.encode('utf-8'),
-                                timeout=(start_time + 90 - time.perf_counter()),
-                                capture_output=True)
-                        except TimeoutExpired:
-                            break
-                            
-                        if result.returncode != 0:
-                            raise Exception(result.stdout.decode('utf-8') +
-                                            '\n' + result.stderr.decode('utf-8'))
-
-                        output = result.stdout.decode('utf-8')
-                        state = output[:output.find('\n')].strip()
-                        final = output[output.find('\n')+1:].strip()
-
-                        if state == 'GLASS':
-                            start_temp *= .5
-                            hintfile.seek(0)
-                            hintfile.truncate()
-                            hintfile.write(final.encode('utf-8'))
-                            hintfile.flush()
-                            args = [hintfile.name]
-                            continue  # Reanneal
-                        elif state == 'SUCCESS':
-                            times[iteration] = (time.perf_counter() - start_time) * 1000
-                            break
-
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                times = [*executor.map(_thread_top1465_geometric, (puzzle for _ in range(4)))]
+            times = np.array(times)
             print(times)
             outfile.write(
                 f'{i}\t'
                 f'{np.count_nonzero(times[times < 0.]) / 4.}\t'
                 f'{np.average(times[times >= 0.])}\n')
+
+def _thread_top1465_geometric(puzzle):
+    with NamedTemporaryFile(delete=True) as puzzlefile, \
+            NamedTemporaryFile(delete=True) as hintfile:
+        puzzlefile.write(puzzle.encode('utf-8'))
+        puzzlefile.flush()
+
+        # Give ourselves 1m30s.
+        # Use a geometric schedule with 100_000 iterations total each round
+        # Start with a starting temperature of 1.,
+        # then every new round halve scale the curve by 1/2.
+        start_time = time.perf_counter()
+        start_temp = 1.
+        args = []
+        while True:
+            if time.perf_counter() - start_time > 90:
+                break
+
+            if start_temp < 0.01:
+                start_temp = 1.
+
+            schedule = ''
+            temperature = copy.copy(start_temp)
+            iterations = 1
+            total_iters = 0
+            while total_iters < 100_000:
+                schedule += f'{temperature} {int(iterations)}\n'
+                temperature *= 0.99
+                iterations *= 1.01
+                total_iters += iterations
+
+            try:
+                result = run(
+                    ['../target/release/annealing',
+                        puzzlefile.name, '-', *args],
+                    input=schedule.encode('utf-8'),
+                    timeout=(start_time + 90 - time.perf_counter()),
+                    capture_output=True)
+            except TimeoutExpired:
+                break
+                
+            if result.returncode != 0:
+                raise Exception(result.stdout.decode('utf-8') +
+                                '\n' + result.stderr.decode('utf-8'))
+
+            output = result.stdout.decode('utf-8')
+            state = output[:output.find('\n')].strip()
+            final = output[output.find('\n')+1:].strip()
+
+            if state == 'GLASS':
+                start_temp *= .5
+                hintfile.seek(0)
+                hintfile.truncate()
+                hintfile.write(final.encode('utf-8'))
+                hintfile.flush()
+                args = [hintfile.name]
+                continue  # Reanneal
+            elif state == 'SUCCESS':
+                return (time.perf_counter() - start_time) * 1000
+    return -1
 
 def benchmark_top1465_remelt():
     puzzles = []
@@ -301,64 +304,66 @@ def benchmark_top1465_remelt():
         outfile.write(
             '# <Puzzle index>\t<Unsolved percentage>\t<Average solve time (ms)>\n')
         for i, puzzle in enumerate(puzzles):
-            times = np.array([-1., -1., -1., -1.])
-            for iteration in range(4):
-                with NamedTemporaryFile(delete=True) as puzzlefile, \
-                        NamedTemporaryFile(delete=True) as hintfile:
-                    puzzlefile.write(puzzle.encode('utf-8'))
-                    puzzlefile.flush()
-
-                    start_time = time.perf_counter()
-                    start_temp = 1.
-                    args = []
-                    while True:
-                        if time.perf_counter() - start_time > 90:
-                            break
-
-                        if start_temp < 0.01:
-                            start_temp = 1.
-                        else:
-                            start_temp *= 0.99
-
-                        schedule = orig_schedule.copy()
-                        schedule[:,0] *= start_temp
-                        schedule = '\n'.join('%.6g\t%d' % (line[0], line[1]) for line in schedule)
-
-                        try:
-                            result = run(
-                                ['../target/release/annealing', puzzlefile.name, '-', *args],
-                                input=schedule.encode('utf-8'),
-                                timeout=(start_time + 90 - time.perf_counter()),
-                                capture_output=True)
-                        except TimeoutExpired:
-                            break
-
-                        if result.returncode != 0:
-                            raise Exception(result.stdout.decode('utf-8') +
-                                            '\n' + result.stderr.decode('utf-8'))
-
-                        output = result.stdout.decode('utf-8')
-                        state = output[:output.find('\n')].strip()
-                        final = output[output.find('\n')+1:].strip()
-
-                        if state == 'GLASS':
-                            start_temp *= .5
-                            hintfile.seek(0)
-                            hintfile.truncate()
-                            hintfile.write(final.encode('utf-8'))
-                            hintfile.flush()
-                            args = [hintfile.name]
-                            continue  # Reanneal
-                        elif state == 'SUCCESS':
-                            times[iteration] = (time.perf_counter() - start_time) * 1000
-                            break
-
-            print(times)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                times = [*executor.map(_thread_top1465_remelt, ((orig_schedule, puzzle) for _ in range(4)))]
+            times = np.array(times)
             outfile.write(
                 f'{i}\t'
                 f'{np.count_nonzero(times[times < 0.]) / 4.}\t'
                 f'{np.average(times[times >= 0.]) if not (times < 0).all() else 0.}\n')
 
+
+def _thread_top1465_remelt(args):
+    orig_schedule, puzzle = args
+    with NamedTemporaryFile(delete=True) as puzzlefile, \
+            NamedTemporaryFile(delete=True) as hintfile:
+        puzzlefile.write(puzzle.encode('utf-8'))
+        puzzlefile.flush()
+
+        start_time = time.perf_counter()
+        start_temp = 1.
+        args = []
+        while True:
+            if time.perf_counter() - start_time > 90:
+                break
+
+            if start_temp < 0.01:
+                start_temp = 1.
+            else:
+                start_temp *= 0.99
+
+            schedule = orig_schedule.copy()
+            schedule[:,0] *= start_temp
+            schedule = '\n'.join('%.6g\t%d' % (line[0], line[1]) for line in schedule)
+
+            try:
+                result = run(
+                    ['../target/release/annealing', puzzlefile.name, '-', *args],
+                    input=schedule.encode('utf-8'),
+                    timeout=(start_time + 90 - time.perf_counter()),
+                    capture_output=True)
+            except TimeoutExpired:
+                break
+
+            if result.returncode != 0:
+                raise Exception(result.stdout.decode('utf-8') +
+                                '\n' + result.stderr.decode('utf-8'))
+
+            output = result.stdout.decode('utf-8')
+            state = output[:output.find('\n')].strip()
+            final = output[output.find('\n')+1:].strip()
+
+            if state == 'GLASS':
+                start_temp *= .5
+                hintfile.seek(0)
+                hintfile.truncate()
+                hintfile.write(final.encode('utf-8'))
+                hintfile.flush()
+                args = [hintfile.name]
+                continue  # Reanneal
+            elif state == 'SUCCESS':
+                return (time.perf_counter() - start_time) * 1000
+    return -1
 
 
 if __name__ == '__main__':
