@@ -21,7 +21,7 @@ import random
 import numpy as np
 from glob import glob
 from tempfile import NamedTemporaryFile
-from subprocess import run
+from subprocess import run, TimeoutExpired
 from docopt import docopt
 
 
@@ -65,8 +65,11 @@ def benchmark_paper_geometric():
                     start_temp = 1.
                     args = []
                     while True:
-                        if time.perf_counter() - start_time > 90 * 1000:
+                        if time.perf_counter() - start_time > 90:
                             break
+
+                        if start_temp < 0.01:
+                            start_temp = 1.
 
                         schedule = ''
                         total_iters = 1
@@ -77,11 +80,14 @@ def benchmark_paper_geometric():
                             temperature *= 0.99
                             total_iters *= 1.01
 
-                        result = run(
-                            ['../target/release/annealing', puzzlefile, '-', *args],
-                            input=schedule.encode('utf-8'),
-                            timeout=(start_time + 90 * 1000 - time.perf_counter()),
-                            capture_output=True)
+                        try:
+                            result = run(
+                                ['../target/release/annealing', puzzlefile, '-', *args],
+                                input=schedule.encode('utf-8'),
+                                timeout=(start_time + 90 - time.perf_counter()),
+                                capture_output=True)
+                        except TimeoutExpired:
+                            break
 
                         if result.returncode != 0:
                             raise Exception(result.stdout.decode('utf-8') +
@@ -100,7 +106,7 @@ def benchmark_paper_geometric():
                             args = [hintfile.name]
                             continue  # Reanneal
                         elif state == 'SUCCESS':
-                            times[iteration] = time.perf_counter() - start_time
+                            times[iteration] = (time.perf_counter() - start_time) * 1000
                             break
 
             print(times)
@@ -147,8 +153,11 @@ def benchmark_top1465_geometric():
                     start_temp = 1.
                     args = []
                     while True:
-                        if time.perf_counter() - start_time > 90 * 1000:
+                        if time.perf_counter() - start_time > 90:
                             break
+
+                        if start_temp < 0.01:
+                            start_temp = 1.
 
                         schedule = ''
                         total_iters = 1
@@ -159,13 +168,16 @@ def benchmark_top1465_geometric():
                             temperature *= 0.99
                             total_iters *= 1.01
 
-                        result = run(
-                            ['../target/release/annealing',
-                                puzzlefile.name, '-', *args],
-                            input=schedule.encode('utf-8'),
-                            timeout=(start_time + 90 * 1000 - time.perf_counter()),
-                            capture_output=True)
-
+                        try:
+                            result = run(
+                                ['../target/release/annealing',
+                                    puzzlefile.name, '-', *args],
+                                input=schedule.encode('utf-8'),
+                                timeout=(start_time + 90 - time.perf_counter()),
+                                capture_output=True)
+                        except TimeoutExpired:
+                            break
+                            
                         if result.returncode != 0:
                             raise Exception(result.stdout.decode('utf-8') +
                                             '\n' + result.stderr.decode('utf-8'))
@@ -183,14 +195,14 @@ def benchmark_top1465_geometric():
                             args = [hintfile.name]
                             continue  # Reanneal
                         elif state == 'SUCCESS':
-                            times[iteration] = time.perf_counter() - start_time
+                            times[iteration] = (time.perf_counter() - start_time) * 1000
                             break
 
             print(times)
             outfile.write(
                 f'{i}\t'
-                f'{np.count_nonzero(time[time < 0.]) / 4.}\t'
-                f'{np.average(time[time >= 0.])}\n')
+                f'{np.count_nonzero(times[times < 0.]) / 4.}\t'
+                f'{np.average(times[times >= 0.])}\n')
 
 
 if __name__ == '__main__':
