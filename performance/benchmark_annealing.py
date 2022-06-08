@@ -189,8 +189,8 @@ def benchmark_top1465_geometric():
             print(times)
             outfile.write(
                 f'{i}\t'
-                f'{np.count_nonzero(time[time < 0.]) / 4.}\t'
-                f'{np.average(time[time >= 0.])}\n')
+                f'{np.count_nonzero(time[times < 0.]) / 4.}\t'
+                f'{np.average(times[times >= 0.])}\n')
 
 
 if __name__ == '__main__':

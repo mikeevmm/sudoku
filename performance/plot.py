@@ -3,8 +3,9 @@
 """Plot all the things!
 
 Usage:
-    plot backtrack paper
-    plot backtrack top1465
+    plot backtrack (paper|top1465)
+    plot annealing schedules
+    plot annealing (geometric|remelt) (paper|top1465)
     plot (--help|-h)
 
 Options:
@@ -69,6 +70,68 @@ def plot_backtrack_top1465():
 
     plt.savefig('backtrack_top1465.png')
 
+
+def plot_schedules():
+    # Plot geometric
+    fig, ax1 = plt.subplots(figsize=(10,8))
+    ax2 = ax1.twinx()
+
+    ax1.set_ylabel('Reduced Temperature', color='#C23D3E')
+    ax2.set_ylabel('Iterations', color='#3DC23E')
+
+    temperatures = []
+    iterations = []
+
+    iteration = 1.
+    total_iters = 0
+    temperature = 1.
+    while int(total_iters) < 100000:
+        iterations.append(int(iteration))
+        temperatures.append(temperature)
+
+        temperature *= 0.99
+        iteration *= 1.01
+        total_iters += int(iteration)
+
+    ax1.scatter(np.arange(len(temperatures)), temperatures, color='#C23D3E', marker='1')
+    ax2.scatter(np.arange(len(iterations)), iterations, color='#3DC23E', marker='2')
+
+    plt.title('Geometric anenaling schedule')
+    plt.xticks([])
+    plt.savefig('geometric_annealing.png')
+
+    # Plot remelt
+    fig, ax1 = plt.subplots(figsize=(10,8))
+    ax2 = ax1.twinx()
+
+    ax1.set_ylabel('Reduced Temperature', color='#C23D3E')
+    ax2.set_ylabel('Iterations', color='#3DC23E')
+
+    schedule = np.loadtxt('remelt.schedule', delimiter='\t')
+
+    ax1.scatter(np.arange(len(schedule[:, 0])), schedule[:, 0], color='#C23D3E', marker='1')
+    ax2.scatter(np.arange(len(schedule[:, 1])), schedule[:, 1], color='#3DC23E', marker='2')
+
+    plt.title('“Remelt” anenaling schedule')
+    plt.xticks([])
+    plt.savefig('remelt_annealing.png')
+
+
+def plot_geometric_paper():
+    pass
+
+
+def plot_geometric_to1465():
+    pass
+
+
+def plot_remelt_paper():
+    pass
+
+
+def plot_remelt_to1465():
+    pass
+
 if __name__ == '__main__':
     arguments = docopt(__doc__)
 
@@ -77,3 +140,24 @@ if __name__ == '__main__':
             plot_backtrack_paper()
         elif arguments['top1465']:
             plot_backtrack_top1465()
+    elif arguments['annealing']:
+        if arguments['schedules']:
+            plot_schedules()
+        elif arguments['geometric']:
+            if arguments['paper']:
+                plot_geometric_paper()
+            elif arguments['top1465']:
+                plot_geometric_top1465()
+            else:
+                print('what?')
+        elif arguments['remelt']:
+            if arguments['paper']:
+                plot_remelt_paper()
+            elif arguments['top1465']:
+                plot_remelt_top1465()
+            else:
+                print('what?')
+        else:
+            print('what?')
+    else:
+        print('what?')
