@@ -316,14 +316,15 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
                 (r / box_side) == (rr / box_side) && (c / box_side) == (cc / box_side)
             });
 
-        let all_satisfied = pairs_to_check.any(|((r, c), (rr, cc))| {
+        
+        set_according_to_tensor(sudoku, tensor.clone());
+        let some_violation = pairs_to_check.any(|((r, c), (rr, cc))| {
             sudoku.get(r, c).value().map_or(false, |v| {
                 sudoku.get(rr, cc).value().map_or(false, |vv| v == vv)
             })
         });
-        if all_satisfied {
+        if !some_violation {
             //println!("{:?}", tensor);
-            set_according_to_tensor(sudoku, tensor);
             return SolveResult::EarlySuccess;
         }
     }
