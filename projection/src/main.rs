@@ -149,7 +149,7 @@ fn main() {
 
     match result {
         solver::SolveResult::IterationsExhausted => println!("EXHAUSTED"),
-        solver::SolveResult::EarlySuccess => println!("ALL SATISFIED"),
+        solver::SolveResult::Success => println!("ALL SATISFIED"),
     }
 
     println!("{}", input);

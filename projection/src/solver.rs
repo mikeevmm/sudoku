@@ -5,7 +5,7 @@ use sudoku::SudokuCellValue;
 
 pub enum SolveResult {
     IterationsExhausted,
-    EarlySuccess,
+    Success,
 }
 
 pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult {
@@ -19,16 +19,15 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
 
     let mut tensor = ndarray::Array::<f64, _>::zeros((side, side, side));
 
-    // Fix the probabilities of known digits, and forbid incompatible ones
-    for r in 0..side {
-        for c in 0..side {
-            if let Some(digit) = sudoku.get(r, c).value() {
-                for d in 0..side {
-                    tensor[[r, c, d]] = if d == digit - 1 { 1.0 } else { 0.0 };
-                }
+    let influence_pairs = (0..side)
+        .cartesian_product(0..side)
+        .tuple_combinations()
+        .filter(|((r, c), (rr, cc))| {
+            if r == rr || c == cc {
+                return true;
             }
-        }
-    }
+            (r / box_side) == (rr / box_side) && (c / box_side) == (cc / box_side)
+        });
 
     // Precompute the valid elements of the rows, columns, subgrids and cells.
     let mut row_digit_simplexes =
@@ -41,6 +40,10 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
 
     {
         let digit_can_go_here = |row, column, d| {
+            if !sudoku.get(row, column).is_empty() {
+                return false;
+            }
+
             for rr in 0..side {
                 if rr == column {
                     continue;
@@ -80,12 +83,12 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
 
         for row in 0..side {
             for d in 0..side {
-                let simplex = (0..side)
-                    .filter(|c| digit_can_go_here(row, *c, d))
-                    .map(|c| unsafe {
+                let valid_cols = (0..side).filter(|cc| digit_can_go_here(row, *cc, d));
+                let simplex = valid_cols
+                    .map(|cc| unsafe {
                         &mut *(base_ptr.offset(
                             row as isize * strides[0]
-                                + c as isize * strides[1]
+                                + cc as isize * strides[1]
                                 + d as isize * strides[2],
                         ) as *mut f64)
                     })
@@ -96,11 +99,11 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
 
         for column in 0..side {
             for d in 0..side {
-                let simplex = (0..side)
-                    .filter(|r| digit_can_go_here(*r, column, d))
-                    .map(|r| unsafe {
+                let valid_rows = (0..side).filter(|rr| digit_can_go_here(*rr, column, d));
+                let simplex = valid_rows
+                    .map(|rr| unsafe {
                         &mut *(base_ptr.offset(
-                            r as isize * strides[0]
+                            rr as isize * strides[0]
                                 + column as isize * strides[1]
                                 + d as isize * strides[2],
                         ) as *mut f64)
@@ -110,37 +113,36 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
             }
         }
 
-        for a in 0..box_side {
-            for b in 0..box_side {
+        for subgrid_v_index in 0..box_side {
+            for subgrid_h_index in 0..box_side {
                 for d in 0..side {
-                    let simplex = (0..box_side)
+                    let subgrid_base_row = subgrid_v_index * box_side;
+                    let subgrid_base_col = subgrid_h_index * box_side;
+                    let valid_subgrid_positions = (0..box_side)
                         .cartesian_product(0..box_side)
                         .filter(|(v, h)| {
-                            let rr = a * box_side + v;
-                            let cc = b * box_side + h;
-                            digit_can_go_here(rr, cc, d)
+                            digit_can_go_here(subgrid_base_row + v, subgrid_base_col + h, d)
                         })
-                        .map(|(v, h)| {
-                            let rr = a * box_side + v;
-                            let cc = b * box_side + h;
-                            unsafe {
-                                &mut *(base_ptr.offset(
-                                    rr as isize * strides[0]
-                                        + cc as isize * strides[1]
-                                        + d as isize * strides[2],
-                                ) as *mut f64)
-                            }
+                        .map(|(v, h)| (subgrid_base_row + v, subgrid_base_col + h));
+                    let simplex = valid_subgrid_positions
+                        .map(|(rr, cc)| unsafe {
+                            &mut *(base_ptr.offset(
+                                rr as isize * strides[0]
+                                    + cc as isize * strides[1]
+                                    + d as isize * strides[2],
+                            ) as *mut f64)
                         })
                         .collect_vec();
-                    subgrid_digit_simplexes.insert((a * box_side, b * box_side, d), simplex);
+                    subgrid_digit_simplexes
+                        .insert((subgrid_base_row, subgrid_base_col, d), simplex);
                 }
             }
         }
 
         for row in 0..side {
             for column in 0..side {
-                let simplex = (0..side)
-                    .filter(|d| digit_can_go_here(row, column, *d))
+                let valid_digits_here = (0..side).filter(|d| digit_can_go_here(row, column, *d));
+                let simplex = valid_digits_here
                     .map(|d| unsafe {
                         &mut *(base_ptr.offset(
                             row as isize * strides[0]
@@ -171,10 +173,6 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
         };
 
     let simplex_projection = |y: &mut [&mut f64]| {
-        if y.len() == 0 {
-            return;
-        }
-
         // Following the formulation of Algorithm 1 [0].
         // Insertion sort; we need to preserve a copy of y anyway
         // (I started by implementing quick sort in place and was very proud)
@@ -218,18 +216,21 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
 
     #[derive(Debug)]
     enum Constraint {
-        /// (row, digit)
+        /// (row, digit - 1)
         /// Probability of a digit along the row should be 1
         RowSimplex(usize, usize),
-        /// (col, digit)
+        /// (col, digit - 1)
         /// Probability of a digit along the column should be 1
         ColSimplex(usize, usize),
-        /// (subgrid_base_row, subgrid_base_col, digit)
+        /// (subgrid_base_row, subgrid_base_col, digit - 1)
         /// Probability of a digit in a subgrid should be 1
         SubgridSimplex(usize, usize, usize),
-        /// (row, col, possible_digits)
+        /// (row, col, possible_digits - 1)
         /// Probability of any digit in a cell should be 1
         DigitSimplex(usize, usize),
+        /// (row, col, digit - 1)
+        /// Probability of this digit in this place is 1
+        Known(usize, usize, usize),
     }
 
     let constraints = ((0..side)
@@ -276,6 +277,12 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
             None => Some(Constraint::DigitSimplex(r, c)),
         },
     ))
+    .chain((0..side).cartesian_product(0..side).filter_map(|(r, c)| {
+        sudoku
+            .get(r, c)
+            .value()
+            .map(|digit| Constraint::Known(r, c, digit - 1))
+    }))
     .collect::<Vec<Constraint>>();
 
     eprintln!(
@@ -298,38 +305,29 @@ pub fn solve(sudoku: &mut sudoku::Sudoku, max_iterations: usize) -> SolveResult 
                 Constraint::SubgridSimplex(a, b, d) => {
                     simplex_projection(subgrid_digit_simplexes.get_mut(&(*a, *b, *d)).unwrap())
                 }
+                Constraint::Known(row, col, d) => {
+                    for dd in 0..side {
+                        tensor[[*row, *col, dd]] = if dd == *d { 1. } else { 0. };
+                    }
+                }
             }
         }
 
         // Count violations
 
-        let mut pairs_to_check = (0..side)
-            .cartesian_product(0..side)
-            .tuple_combinations()
-            .filter(|((r, c), (rr, cc))| {
-                if r == rr && c == cc {
-                    return false; // This should never happen, due to the behavior of tuple_combinations()
-                }
-                if r == rr || c == cc {
-                    return true;
-                }
-                (r / box_side) == (rr / box_side) && (c / box_side) == (cc / box_side)
-            });
-
-        
         set_according_to_tensor(sudoku, tensor.clone());
-        let some_violation = pairs_to_check.any(|((r, c), (rr, cc))| {
+        let some_violation = influence_pairs.clone().any(|((r, c), (rr, cc))| {
             sudoku.get(r, c).value().map_or(false, |v| {
                 sudoku.get(rr, cc).value().map_or(false, |vv| v == vv)
             })
         });
         if !some_violation {
             //println!("{:?}", tensor);
-            return SolveResult::EarlySuccess;
+            return SolveResult::Success;
         }
     }
 
     //println!("{:?}", tensor);
-    set_according_to_tensor(sudoku, tensor);
+    //set_according_to_tensor(sudoku, tensor);
     SolveResult::IterationsExhausted
 }
