@@ -85,7 +85,7 @@ def benchmark_top1465():
             if not puzzle:
                 continue
             puzzle = '\n'.join(' '.join(puzzle.replace(
-                '.', '_')[i:i+9]) for i in range(9))
+                '.', '_')[i*9:(i+1)*9]) for i in range(9))
             puzzles.append(puzzle)
 
     print('Finished parsing puzzles.')

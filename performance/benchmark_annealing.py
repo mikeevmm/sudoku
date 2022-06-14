@@ -65,16 +65,17 @@ def benchmark_paper_remelt():
                     # Start with a starting temperature of 1.,
                     # then every new round halve scale the curve by 1/2.
                     start_time = time.perf_counter()
-                    start_temp = 1.
+                    start_temp = 20.
                     args = []
                     while True:
                         if time.perf_counter() - start_time > 90:
                             break
 
-                        if start_temp < 0.01:
-                            start_temp = 1.
+                        if start_temp < 0.5:
+                            start_temp = 20.
+                            args = []
                         else:
-                            start_temp *= 0.99
+                            start_temp *= 0.5
 
                         schedule = orig_schedule.copy()
                         schedule[:,0] *= start_temp
@@ -109,7 +110,7 @@ def benchmark_paper_remelt():
                             times[iteration] = (time.perf_counter() - start_time) * 1000
                             break
 
-            print(times)
+            print(times, flush=True)
             outfile.write(
                 f'{i}\t'
                 f'{np.count_nonzero(times[times < 0.]) / 4.}\t'
@@ -134,14 +135,15 @@ def benchmark_paper_geometric():
                     # Start with a starting temperature of 1.,
                     # then every new round halve scale the curve by 1/2.
                     start_time = time.perf_counter()
-                    start_temp = 1.
+                    start_temp = 20.
                     args = []
                     while True:
                         if time.perf_counter() - start_time > 90:
                             break
 
-                        if start_temp < 0.01:
-                            start_temp = 1.
+                        if start_temp < 0.5:
+                            start_temp = 20.
+                            args = []
 
                         schedule = ''
                         temperature = copy.copy(start_temp)
@@ -182,11 +184,11 @@ def benchmark_paper_geometric():
                             times[iteration] = (time.perf_counter() - start_time) * 1000
                             break
 
-            print(times)
+            print(times, flush=True)
             outfile.write(
                 f'{i}\t'
                 f'{np.count_nonzero(times[times < 0.]) / 4.}\t'
-                f'{np.average(times[times >= 0.])}\n')
+                f'{np.average(times[times >= 0.]) if (times >= 0.).any() else 0.}\n')
 
 
 def benchmark_top1465_geometric():
@@ -197,7 +199,7 @@ def benchmark_top1465_geometric():
             if not puzzle:
                 continue
             puzzle = '\n'.join(' '.join(puzzle.replace(
-                '.', '_')[i:i+9]) for i in range(9))
+                '.', '_')[i*9:(i+1)*9]) for i in range(9))
             puzzles.append(puzzle)
 
     print('Finished parsing puzzles.')
@@ -214,7 +216,7 @@ def benchmark_top1465_geometric():
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 times = [*executor.map(_thread_top1465_geometric, (puzzle for _ in range(4)))]
             times = np.array(times)
-            print(times)
+            print(times, flush=True)
             outfile.write(
                 f'{i}\t'
                 f'{np.count_nonzero(times[times < 0.]) / 4.}\t'
@@ -231,14 +233,15 @@ def _thread_top1465_geometric(puzzle):
         # Start with a starting temperature of 1.,
         # then every new round halve scale the curve by 1/2.
         start_time = time.perf_counter()
-        start_temp = 1.
+        start_temp = 20.
         args = []
         while True:
             if time.perf_counter() - start_time > 90:
                 break
 
-            if start_temp < 0.01:
-                start_temp = 1.
+            if start_temp < 0.5:
+                start_temp = 20.
+                args = []
 
             schedule = ''
             temperature = copy.copy(start_temp)
@@ -288,7 +291,7 @@ def benchmark_top1465_remelt():
             if not puzzle:
                 continue
             puzzle = '\n'.join(' '.join(puzzle.replace(
-                '.', '_')[i:i+9]) for i in range(9))
+                '.', '_')[i*9:(i+1)*9]) for i in range(9))
             puzzles.append(puzzle)
 
     print('Finished parsing puzzles.')
@@ -307,6 +310,7 @@ def benchmark_top1465_remelt():
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 times = [*executor.map(_thread_top1465_remelt, ((orig_schedule, puzzle) for _ in range(4)))]
             times = np.array(times)
+            print(times, flush=True)
             outfile.write(
                 f'{i}\t'
                 f'{np.count_nonzero(times[times < 0.]) / 4.}\t'
@@ -321,16 +325,17 @@ def _thread_top1465_remelt(args):
         puzzlefile.flush()
 
         start_time = time.perf_counter()
-        start_temp = 1.
+        start_temp = 20.
         args = []
         while True:
             if time.perf_counter() - start_time > 90:
                 break
 
-            if start_temp < 0.01:
-                start_temp = 1.
+            if start_temp < 0.5:
+                start_temp = 20.
+                args = []
             else:
-                start_temp *= 0.99
+                start_temp *= 0.5
 
             schedule = orig_schedule.copy()
             schedule[:,0] *= start_temp

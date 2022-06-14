@@ -38,7 +38,7 @@ def bench_top1465():
             puzzle = puzzle.strip()
             if not puzzle:
                 continue
-            puzzle = '\n'.join(' '.join(puzzle.replace('.', '_')[i:i+9]) for i in range(9))
+            puzzle = '\n'.join(' '.join(puzzle.replace('.', '_')[i*9:(i+1)*9]) for i in range(9))
             puzzles.append(puzzle)
 
     #split = 293
